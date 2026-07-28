@@ -55,17 +55,17 @@ uv run python main.py
 Download from [GitHub Releases](https://github.com/kenjaku-dev/snapcap-wayland/releases):
 
 ```bash
-tar xzf snapcap-v0.1.0-linux-x86_64.tar.gz
+tar xzf snapcap-v0.2.0-linux-x86_64.tar.gz
 ./snapcap/snapcap
 ```
 
 ### AppImage
 
-Download `snapcap-v0.1.0-x86_64.AppImage` from [GitHub Releases](https://github.com/kenjaku-dev/snapcap-wayland/releases), then:
+Download `snapcap-v0.2.0-x86_64.AppImage` from [GitHub Releases](https://github.com/kenjaku-dev/snapcap-wayland/releases), then:
 
 ```bash
-chmod +x snapcap-v0.1.0-x86_64.AppImage
-./snapcap-v0.1.0-x86_64.AppImage
+chmod +x snapcap-v0.2.0-x86_64.AppImage
+./snapcap-v0.2.0-x86_64.AppImage
 ```
 
 ## Usage

@@ -6,11 +6,14 @@ Built with Python & Qt6. Uses `grim` + `slurp` for capture and region selection.
 
 ## Features
 
-- Region selection via `slurp` crosshair
+- Region selection via `slurp` crosshair (or fullscreen mode)
 - Preview window with Save / Copy to Clipboard
-- Ctrl+S to save, Ctrl+C to copy, Ctrl+N for new capture
+- Customizable keybindings in preview window
 - Native Wayland clipboard support via `wl-copy`
-- One-shot mode (capture and done)
+- System tray daemon with StatusNotifierItem (Waybar, etc.)
+- One-shot mode (capture and done) or persistent daemon
+- Configurable delay, cursor capture, auto-save, auto-copy
+- Full settings UI
 
 ## Dependencies
 
@@ -68,10 +71,53 @@ chmod +x snapcap-v0.1.0-x86_64.AppImage
 ## Usage
 
 ```bash
-snapcap                    # capture region → preview
+snapcap                          # show launcher window
+snapcap -c                       # capture region → preview, then exit
+snapcap --capture                # same as -c
+snapcap -d                       # start as daemon (stays in tray)
+snapcap --daemon                 # same as -d
+snapcap --settings               # open settings dialog directly
 ```
 
-### Niri keybinding
+### Modes
+
+- **Launcher** (default) — shows a small window with Capture Region, Capture Fullscreen, and Settings buttons
+- **Capture** (`-c`/`--capture`) — skips the launcher, goes straight to capture (for keybindings)
+- **Daemon** (`-d`/`--daemon`) — lives in system tray via StatusNotifierItem. Click tray icon to capture, right-click for menu
+- **Settings** (`--settings`) — opens the settings dialog standalone
+
+### Configuration
+
+Settings are stored in `~/.config/snapcap/config.toml` (auto-created with defaults on first run). You can edit it directly or use the settings UI from the preview window or tray menu.
+
+```toml
+[general]
+auto_copy = true
+auto_save = false
+notification = true
+
+[capture]
+mode = "region"          # "region" or "fullscreen"
+delay = 0                # seconds before capture
+include_cursor = false
+
+[save]
+directory = "~/Pictures/Screenshots"
+format = "PNG"
+quality = -1
+
+[shortcuts]
+save = "Ctrl+S"
+copy = "Ctrl+C"
+new_capture = "Ctrl+N"
+close = "Escape"
+
+[preview]
+max_width = 800
+stay_on_top = true
+```
+
+### Niri
 
 ```kdl
 binds {

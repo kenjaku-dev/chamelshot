@@ -1,13 +1,37 @@
 [project]
 name = "snapcap"
-version = "0.1.0"
+version = "0.2.0"
 license = "GPL-3.0-only"
 description = "A lightweight screenshot capture tool for Wayland (wlroots)"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "pyside6>=6.11.1",
+    "dbus-python>=1.4.0",
+    "pygobject>=3.56.0",
 ]
 
 [project.scripts]
 snapcap = "main:main"
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.11.0",
+    "pyright>=1.1.400",
+    "pytest>=8.0",
+]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 120
+lint.select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.pyright]
+typeCheckingMode = "basic"
+reportMissingImports = false
+
+[tool.pytest.ini_options]
+python_files = ["test_*.py"]

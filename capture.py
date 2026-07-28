@@ -6,18 +6,23 @@
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
+import time
 import subprocess
 from PySide6.QtGui import QPixmap
 
 
-def capture_region(left: int, top: int, right: int, bottom: int) -> QPixmap:
-    w = right - left
-    h = bottom - top
-    result = subprocess.run(
-        ["grim", "-g", f"{left},{top} {w}x{h}", "-"],
-        capture_output=True,
-        timeout=10,
-    )
+GRIM_NOT_FOUND = "grim is not installed. Install it: sudo pacman -S grim"
+
+
+def _run_grim(args: list[str], delay: int = 0) -> QPixmap:
+    if delay > 0:
+        time.sleep(delay)
+    cmd = ["grim"]
+    cmd.extend(args)
+    try:
+        result = subprocess.run(cmd, capture_output=True, timeout=10)
+    except FileNotFoundError:
+        raise RuntimeError(GRIM_NOT_FOUND)
     if result.returncode != 0:
         raise RuntimeError(
             f"grim failed (exit {result.returncode}): {result.stderr.decode().strip()}"
@@ -26,3 +31,22 @@ def capture_region(left: int, top: int, right: int, bottom: int) -> QPixmap:
     if not pm.loadFromData(result.stdout):
         raise RuntimeError("Failed to decode grim output")
     return pm
+
+
+def capture_region(
+    left: int, top: int, right: int, bottom: int,
+    delay: int = 0, include_cursor: bool = False,
+) -> QPixmap:
+    w = right - left
+    h = bottom - top
+    args = []
+    if include_cursor:
+        args.append("--cursor")
+    args.extend(["-g", f"{left},{top} {w}x{h}", "-"])
+    return _run_grim(args, delay)
+
+
+def capture_fullscreen(delay: int = 0, include_cursor: bool = False) -> QPixmap:
+    args = ["--cursor"] if include_cursor else []
+    args.append("-")
+    return _run_grim(args, delay)

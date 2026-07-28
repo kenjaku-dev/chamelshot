@@ -7,3 +7,8 @@ wheels/
 .venv
 *.spec
 snapcap-bin
+.ruff_cache/
+.pytype/
+.mypy_cache/
+.coverage
+htmlcov/

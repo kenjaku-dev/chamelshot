@@ -6,10 +6,10 @@
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
-import time
 import subprocess
-from PySide6.QtGui import QPixmap
+import time
 
+from PySide6.QtGui import QPixmap
 
 GRIM_NOT_FOUND = "grim is not installed. Install it: sudo pacman -S grim"
 
@@ -24,9 +24,7 @@ def _run_grim(args: list[str], delay: int = 0) -> QPixmap:
     except FileNotFoundError:
         raise RuntimeError(GRIM_NOT_FOUND)
     if result.returncode != 0:
-        raise RuntimeError(
-            f"grim failed (exit {result.returncode}): {result.stderr.decode().strip()}"
-        )
+        raise RuntimeError(f"grim failed (exit {result.returncode}): {result.stderr.decode().strip()}")
     pm = QPixmap()
     if not pm.loadFromData(result.stdout):
         raise RuntimeError("Failed to decode grim output")
@@ -34,8 +32,12 @@ def _run_grim(args: list[str], delay: int = 0) -> QPixmap:
 
 
 def capture_region(
-    left: int, top: int, right: int, bottom: int,
-    delay: int = 0, include_cursor: bool = False,
+    left: int,
+    top: int,
+    right: int,
+    bottom: int,
+    delay: int = 0,
+    include_cursor: bool = False,
 ) -> QPixmap:
     w = right - left
     h = bottom - top

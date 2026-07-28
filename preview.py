@@ -10,17 +10,17 @@ import os
 import shutil
 import subprocess
 
-from PySide6.QtCore import Qt, QTimer, QBuffer
-from PySide6.QtGui import QPixmap, QKeySequence, QShortcut
+from PySide6.QtCore import QBuffer, Qt, QTimer
+from PySide6.QtGui import QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QLabel,
-    QHBoxLayout,
-    QPushButton,
     QApplication,
     QFileDialog,
+    QHBoxLayout,
+    QLabel,
     QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
 )
 
 import config as cfg
@@ -48,9 +48,7 @@ class PreviewWindow(QWidget):
         w, h = pixmap.width(), pixmap.height()
         display = pixmap
         if w > max_w or h > max_w:
-            display = pixmap.scaled(
-                max_w, max_w, Qt.KeepAspectRatio, Qt.SmoothTransformation
-            )
+            display = pixmap.scaled(max_w, max_w, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
         self.label = QLabel()
         self.label.setPixmap(display)
@@ -129,7 +127,7 @@ class PreviewWindow(QWidget):
         if dlg.exec():
             self.cfg = cfg.load()
 
-    def showEvent(self, event):
+    def showEvent(self, event):  # noqa: N802
         super().showEvent(event)
         screen = self.screen()
         if screen:

@@ -6,28 +6,28 @@
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
-import sys
 import shutil
+import sys
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer, QPoint
-from PySide6.QtGui import QPixmap, QAction
+from PySide6.QtCore import QPoint, Qt, QTimer
+from PySide6.QtGui import QAction, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
-    QMessageBox,
-    QMenu,
-    QWidget,
-    QVBoxLayout,
     QLabel,
+    QMenu,
+    QMessageBox,
     QPushButton,
+    QVBoxLayout,
+    QWidget,
 )
 
 import config as cfg
-from capture import capture_region, capture_fullscreen
+from capture import capture_fullscreen, capture_region
 from overlay import RegionSelector
 from preview import PreviewWindow
-from tray import SnapCapTray
 from settings import SettingsDialog
+from tray import SnapCapTray
 
 
 def _make_pixmap() -> QPixmap:
@@ -177,10 +177,7 @@ class SnapCapApp:
 def check_deps():
     missing = [cmd for cmd in ("grim", "slurp") if shutil.which(cmd) is None]
     if missing:
-        print(
-            f"Missing dependencies: {', '.join(missing)}\n"
-            f"Install: sudo pacman -S {' '.join(missing)}"
-        )
+        print(f"Missing dependencies: {', '.join(missing)}\nInstall: sudo pacman -S {' '.join(missing)}")
         sys.exit(1)
 
 

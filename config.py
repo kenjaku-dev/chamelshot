@@ -6,8 +6,8 @@
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
-import os
 import datetime
+import os
 import tomllib
 from pathlib import Path
 

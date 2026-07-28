@@ -10,12 +10,11 @@ import os
 import threading
 
 import dbus
-import dbus.service
 import dbus.mainloop.glib
+import dbus.service
 from gi.repository import GLib
-
 from PySide6.QtCore import QTimer
-from PySide6.QtGui import QPixmap, QImage
+from PySide6.QtGui import QImage, QPixmap
 
 SNI_IFACE = "org.kde.StatusNotifierItem"
 WATCHER_NAME = "org.kde.StatusNotifierWatcher"
@@ -39,25 +38,25 @@ class _SNIObject(dbus.service.Object):
         self._icon_pm = pixmap
 
     @dbus.service.method(SNI_IFACE, in_signature="ii", out_signature="")
-    def Activate(self, x, y):
+    def Activate(self, x, y):  # noqa: N802
         cb = self._callbacks.get("activate")
         if cb:
             QTimer.singleShot(0, cb)
 
     @dbus.service.method(SNI_IFACE, in_signature="ii", out_signature="")
-    def SecondaryActivate(self, x, y):
+    def SecondaryActivate(self, x, y):  # noqa: N802
         cb = self._callbacks.get("settings")
         if cb:
             QTimer.singleShot(0, cb)
 
     @dbus.service.method(SNI_IFACE, in_signature="ii", out_signature="")
-    def ContextMenu(self, x, y):
+    def ContextMenu(self, x, y):  # noqa: N802
         cb = self._callbacks.get("menu")
         if cb:
             QTimer.singleShot(0, lambda: cb(x, y))
 
     @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature="s", out_signature="a{sv}")
-    def GetAll(self, interface):
+    def GetAll(self, interface):  # noqa: N802
         icon = _icon_data(self._icon_pm) if self._icon_pm else [0, 0, []]
         return {
             "Category": "Utility",

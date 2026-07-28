@@ -6,9 +6,10 @@
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
-import subprocess
 import re
-from PySide6.QtCore import Signal, QObject
+import subprocess
+
+from PySide6.QtCore import QObject, Signal
 
 
 class RegionSelector(QObject):

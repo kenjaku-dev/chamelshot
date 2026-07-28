@@ -6,23 +6,20 @@
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
     QDialog,
-    QVBoxLayout,
+    QFileDialog,
+    QFormLayout,
     QHBoxLayout,
     QLabel,
-    QCheckBox,
     QLineEdit,
-    QComboBox,
-    QSpinBox,
     QPushButton,
-    QFileDialog,
-    QGroupBox,
+    QSpinBox,
     QTabWidget,
+    QVBoxLayout,
     QWidget,
-    QFormLayout,
 )
 
 import config as cfg

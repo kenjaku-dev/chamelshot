@@ -10,7 +10,7 @@ import os
 import shutil
 import subprocess
 
-from PySide6.QtCore import QBuffer, Qt, QTimer
+from PySide6.QtCore import QBuffer, QIODevice, Qt, QTimer
 from PySide6.QtGui import QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
@@ -27,7 +27,7 @@ import config as cfg
 
 
 class PreviewWindow(QWidget):
-    def __init__(self, pixmap: QPixmap, config: dict = None, on_new_capture=None):
+    def __init__(self, pixmap: QPixmap, config: dict | None = None, on_new_capture=None):
         super().__init__()
         self.pixmap = pixmap
         self.cfg = config or cfg.load()
@@ -35,7 +35,7 @@ class PreviewWindow(QWidget):
         self.setWindowTitle("SnapCap - Screenshot")
 
         if self.cfg.get("preview.stay_on_top", True):
-            self.setWindowFlags(Qt.WindowStaysOnTopHint)
+            self.setWindowFlags(Qt.WindowType.WindowStaysOnTopHint)
 
         win_w = self.cfg.get("preview.window_width", 600)
         win_h = self.cfg.get("preview.window_height", 450)
@@ -48,11 +48,16 @@ class PreviewWindow(QWidget):
         w, h = pixmap.width(), pixmap.height()
         display = pixmap
         if w > max_w or h > max_w:
-            display = pixmap.scaled(max_w, max_w, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            display = pixmap.scaled(
+                max_w,
+                max_w,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
 
         self.label = QLabel()
         self.label.setPixmap(display)
-        self.label.setAlignment(Qt.AlignCenter)
+        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.label)
 
         btn_layout = QHBoxLayout()
@@ -143,7 +148,7 @@ class PreviewWindow(QWidget):
                 "Save Screenshot",
                 os.path.expanduser("~/snapcap.png"),
                 f"{fmt} (*.{fmt.lower()})",
-                options=QFileDialog.DontUseNativeDialog,
+                options=QFileDialog.Option.DontUseNativeDialog,
             )
             if path:
                 if quality >= 0:
@@ -158,7 +163,7 @@ class PreviewWindow(QWidget):
     def copy_to_clipboard(self, closing=True):
         try:
             buf = QBuffer()
-            buf.open(QBuffer.ReadWrite)
+            buf.open(QIODevice.OpenModeFlag.ReadWrite)
             if not self.pixmap.save(buf, "PNG"):
                 raise RuntimeError("Failed to encode PNG")
             png_data = buf.data().data()

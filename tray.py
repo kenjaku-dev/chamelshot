@@ -12,7 +12,7 @@ import threading
 import dbus
 import dbus.mainloop.glib
 import dbus.service
-from gi.repository import GLib
+from gi.repository import GLib  # type: ignore[import-untyped]
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QImage, QPixmap
 
@@ -22,7 +22,7 @@ WATCHER_PATH = "/StatusNotifierWatcher"
 
 
 def _icon_data(pixmap):
-    img = pixmap.toImage().convertToFormat(QImage.Format_RGBA8888)
+    img = pixmap.toImage().convertToFormat(QImage.Format.Format_RGBA8888)
     w, h = img.width(), img.height()
     raw = bytes(img.constBits().asarray(img.sizeInBytes()))
     return [w, h, list(raw)]

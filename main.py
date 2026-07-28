@@ -97,7 +97,7 @@ class SnapCapApp:
         layout.setSpacing(8)
 
         title = QLabel("SnapCap")
-        title.setAlignment(Qt.AlignCenter)
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setStyleSheet("font-size: 18px; font-weight: bold; margin-bottom: 8px;")
         layout.addWidget(title)
 

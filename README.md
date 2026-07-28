@@ -32,6 +32,12 @@ sudo pacman -S grim slurp wl-clipboard
 yay -S snapcap-wayland
 ```
 
+### pip
+
+```bash
+pip install git+https://github.com/kenjaku-dev/snapcap-wayland.git
+```
+
 ### From source
 
 ```bash

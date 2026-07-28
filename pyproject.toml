@@ -1,0 +1,13 @@
+[project]
+name = "snapcap"
+version = "0.1.0"
+license = "GPL-3.0-only"
+description = "A lightweight screenshot capture tool for Wayland (wlroots)"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "pyside6>=6.11.1",
+]
+
+[project.scripts]
+snapcap = "main:main"

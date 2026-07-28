@@ -33,5 +33,8 @@ lint.select = ["E", "F", "I", "N", "W", "UP"]
 typeCheckingMode = "basic"
 reportMissingImports = false
 
+[tool.uv]
+package = true
+
 [tool.pytest.ini_options]
 python_files = ["test_*.py"]

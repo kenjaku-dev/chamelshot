@@ -26,6 +26,8 @@ sudo pacman -S grim slurp wl-clipboard
 
 ### AUR (recommended)
 
+[![AUR](https://img.shields.io/badge/AUR-snapcap--wayland-blue)](https://aur.archlinux.org/packages/snapcap-wayland)
+
 ```bash
 yay -S snapcap-wayland
 ```

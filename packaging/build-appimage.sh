@@ -4,7 +4,15 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APPDIR="$REPO_ROOT/build/AppDir"
 
 cd "$REPO_ROOT"
-uv run pyinstaller --onefile --name snapcap \
+uv run pyinstaller --onedir --name snapcap \
+  --paths . \
+  --hidden-import config \
+  --hidden-import capture \
+  --hidden-import editor \
+  --hidden-import overlay \
+  --hidden-import preview \
+  --hidden-import settings \
+  --hidden-import tray \
   --hidden-import PySide6.QtWidgets \
   --hidden-import PySide6.QtGui \
   --hidden-import PySide6.QtCore \
@@ -17,15 +25,15 @@ uv run pyinstaller --onefile --name snapcap \
   --collect-all dbus \
   -y main.py
 
-mkdir -p "$APPDIR/usr/bin"
-cp dist/snapcap "$APPDIR/usr/bin/"
+mkdir -p "$APPDIR/usr/lib/snapcap"
+cp -r dist/snapcap/* "$APPDIR/usr/lib/snapcap/"
 cp packaging/snapcap.desktop "$APPDIR/"
 cp icon.png "$APPDIR/snapcap.png"
 
 cat > "$APPDIR/AppRun" << 'EORUN'
 #!/bin/bash
 APPDIR="$(dirname "$(readlink -f "$0")")"
-exec "$APPDIR/usr/bin/snapcap" "$@"
+exec "$APPDIR/usr/lib/snapcap/snapcap" "$@"
 EORUN
 chmod +x "$APPDIR/AppRun"
 

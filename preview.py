@@ -113,7 +113,7 @@ class PreviewWindow(QWidget):
         if self.cfg.get("general.auto_save"):
             self._auto_save()
         if self.cfg.get("general.auto_copy"):
-            QTimer.singleShot(50, self.copy_to_clipboard)
+            QTimer.singleShot(50, lambda: self.copy_to_clipboard(closing=False))
 
     def _auto_save(self):
         path = cfg.generate_save_path(self.cfg)
@@ -151,6 +151,11 @@ class PreviewWindow(QWidget):
             center = screen.availableGeometry().center()
             self.move(center.x() - self.width() // 2, center.y() - self.height() // 2)
 
+    def _current_pixmap(self) -> QPixmap:
+        if self.stack.currentWidget() == self.annotator and self.annotator.canvas.annotations:
+            return self.annotator.canvas.result_pixmap()
+        return self.pixmap
+
     def save(self):
         try:
             fmt = self.cfg.get("save.format", "PNG")
@@ -163,10 +168,11 @@ class PreviewWindow(QWidget):
                 options=QFileDialog.Option.DontUseNativeDialog,
             )
             if path:
+                px = self._current_pixmap()
                 if quality >= 0:
-                    self.pixmap.save(path, fmt, quality)
+                    px.save(path, fmt, quality)
                 else:
-                    self.pixmap.save(path, fmt)
+                    px.save(path, fmt)
                 self._notify(f"Saved to {path}")
                 self.close()
         except Exception as e:
@@ -174,9 +180,10 @@ class PreviewWindow(QWidget):
 
     def copy_to_clipboard(self, closing=True):
         try:
+            px = self._current_pixmap()
             buf = QBuffer()
             buf.open(QIODevice.OpenModeFlag.ReadWrite)
-            if not self.pixmap.save(buf, "PNG"):
+            if not px.save(buf, "PNG"):
                 raise RuntimeError("Failed to encode PNG")
             png_data = buf.data().data()
             buf.close()
@@ -190,7 +197,7 @@ class PreviewWindow(QWidget):
                         timeout=5,
                     )
             if tool in ("qt", "both"):
-                QApplication.clipboard().setPixmap(self.pixmap)
+                QApplication.clipboard().setPixmap(px)
 
             self._notify("Copied to clipboard")
             if closing:

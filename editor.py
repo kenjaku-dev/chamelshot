@@ -36,6 +36,7 @@ class Annotation:
     width: float = 3.0
     text: str = ""
     blur_radius: int = 10
+    font_size: int = 16
 
 
 class AnnotationCanvas(QWidget):
@@ -54,6 +55,8 @@ class AnnotationCanvas(QWidget):
 
         self.setMouseTracking(True)
         self.setMinimumSize(200, 150)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self._update_cursor()
 
     def _draw_at(self) -> QRectF:
         pw, ph = self.source.width(), self.source.height()
@@ -72,6 +75,18 @@ class AnnotationCanvas(QWidget):
             (pos.x() - r.x()) * self.source.width() / r.width(),
             (pos.y() - r.y()) * self.source.height() / r.height(),
         )
+
+    def _update_cursor(self):
+        cursors = {
+            "pen": Qt.CursorShape.CrossCursor,
+            "arrow": Qt.CursorShape.CrossCursor,
+            "rect": Qt.CursorShape.CrossCursor,
+            "circle": Qt.CursorShape.CrossCursor,
+            "line": Qt.CursorShape.CrossCursor,
+            "text": Qt.CursorShape.IBeamCursor,
+            "blur": Qt.CursorShape.CrossCursor,
+        }
+        self.setCursor(cursors.get(self.tool, Qt.CursorShape.ArrowCursor))
 
     def _save_state(self):
         import copy
@@ -98,7 +113,8 @@ class AnnotationCanvas(QWidget):
         self.update()
 
     def clear_all(self):
-        self._save_state()
+        if self.annotations:
+            self._save_state()
         self.annotations.clear()
         self.update()
 
@@ -111,13 +127,22 @@ class AnnotationCanvas(QWidget):
         p.end()
         return result
 
+    def keyPressEvent(self, event):  # noqa: N802
+        if event.key() == Qt.Key.Key_Escape and self.current is not None:
+            self.current = None
+            self.update()
+        super().keyPressEvent(event)
+
     def paintEvent(self, event):  # noqa: N802
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         r = self._draw_at()
         p.drawPixmap(r, self.source, QRectF(self.source.rect()))
+        p.save()
+        p.translate(r.x(), r.y())
         scale = r.width() / self.source.width() if self.source.width() else 1
         self._paint_annotations(p, self.size(), scale)
+        p.restore()
         p.end()
 
     def _paint_annotations(self, p: QPainter, canvas_size, scale: float):
@@ -156,7 +181,7 @@ class AnnotationCanvas(QWidget):
                 p.drawLine(ann.points[0], ann.points[1])
             elif ann.tool == "text" and ann.points:
                 font = QFont()
-                font.setPixelSize(int(self.font_size * (1 / scale)))
+                font.setPixelSize(int(ann.font_size * (1 / scale)))
                 p.setFont(font)
                 p.setPen(pen)
                 p.drawText(ann.points[0], ann.text)
@@ -168,16 +193,10 @@ class AnnotationCanvas(QWidget):
         rect = QRectF(ann.points[0], ann.points[1])
         if rect.isEmpty():
             return
-        visible = self.rect()
-        blur_rect = QRectF(
-            rect.x() * scale + visible.x(),
-            rect.y() * scale + visible.y(),
-            rect.width() * scale,
-            rect.height() * scale,
-        ).toRect()
-        src = self.grab(blur_rect).toImage()
-        blurred = _box_blur(src, max(1, ann.blur_radius))
-        p.drawImage(blur_rect, blurred)
+        src = self.source.toImage()
+        region = src.copy(rect.toRect())
+        blurred = _box_blur(region, max(1, ann.blur_radius))
+        p.drawImage(rect.topLeft(), blurred)
 
     def _paint_arrow(self, p: QPainter, ann: Annotation, pen: QPen):
         a, b = ann.points[0], ann.points[-1]
@@ -185,10 +204,18 @@ class AnnotationCanvas(QWidget):
         p.drawLine(a, b)
         angle = math.atan2(b.y() - a.y(), b.x() - a.x())
         head_len = max(10, ann.width * 5)
+        pts = [b]
         for sign in (-1, 1):
             x = b.x() - head_len * math.cos(angle + sign * 0.45)
             y = b.y() - head_len * math.sin(angle + sign * 0.45)
-            p.drawLine(b, QPointF(x, y))
+            pts.append(QPointF(x, y))
+        path = QPainterPath()
+        path.moveTo(pts[0])
+        path.lineTo(pts[1])
+        path.lineTo(pts[2])
+        path.closeSubpath()
+        p.fillPath(path, pen.color())
+        p.strokePath(path, pen)
 
     def mousePressEvent(self, event):  # noqa: N802
         if event.button() != Qt.MouseButton.LeftButton:
@@ -201,6 +228,7 @@ class AnnotationCanvas(QWidget):
             if ok and text:
                 ann.points.append(pos)
                 ann.text = text
+                ann.font_size = self.font_size
                 self.annotations.append(ann)
                 self.update()
             return
@@ -237,26 +265,55 @@ class AnnotationCanvas(QWidget):
 
 def _box_blur(src: QImage, radius: int) -> QImage:
     w, h = src.width(), src.height()
-    if w < 1 or h < 1:
+    if w < 1 or h < 1 or radius < 1:
         return src
-    dst = QImage(src.size(), QImage.Format.Format_ARGB32)
-    for y in range(h):
-        for x in range(w):
+
+    def _window_pass(img, horizontal: bool):
+        out = QImage(img.size(), QImage.Format.Format_ARGB32)
+        outer = h if horizontal else w
+        inner = w if horizontal else h
+
+        def pc(xp, yp):
+            return img.pixelColor(xp, yp)
+
+        for i in range(outer):
             r, g, b, a = 0, 0, 0, 0
-            count = 0
-            for dy in range(-radius, radius + 1):
-                for dx in range(-radius, radius + 1):
-                    sx, sy = x + dx, y + dy
-                    if 0 <= sx < w and 0 <= sy < h:
-                        c = src.pixelColor(sx, sy)
-                        r += c.red()
-                        g += c.green()
-                        b += c.blue()
-                        a += c.alpha()
-                        count += 1
-            if count:
-                dst.setPixelColor(x, y, QColor(int(r / count), int(g / count), int(b / count), int(a / count)))
-    return dst
+            div = 0
+            for k in range(-radius, radius + 1):
+                if 0 <= k < inner:
+                    cx, cy = (k, i) if horizontal else (i, k)
+                    c = pc(cx, cy)
+                    r += c.red()
+                    g += c.green()
+                    b += c.blue()
+                    a += c.alpha()
+                    div += 1
+            ox, oy = (0, i) if horizontal else (i, 0)
+            out.setPixelColor(ox, oy, QColor(r // div, g // div, b // div, a // div))
+            for j in range(1, inner):
+                in_remove = j - radius - 1
+                if 0 <= in_remove < inner:
+                    rx, ry = (in_remove, i) if horizontal else (i, in_remove)
+                    c = pc(rx, ry)
+                    r -= c.red()
+                    g -= c.green()
+                    b -= c.blue()
+                    a -= c.alpha()
+                    div -= 1
+                in_add = j + radius
+                if 0 <= in_add < inner:
+                    ax, ay = (in_add, i) if horizontal else (i, in_add)
+                    c = pc(ax, ay)
+                    r += c.red()
+                    g += c.green()
+                    b += c.blue()
+                    a += c.alpha()
+                    div += 1
+                ox, oy = (j, i) if horizontal else (i, j)
+                out.setPixelColor(ox, oy, QColor(r // div, g // div, b // div, a // div))
+        return out
+
+    return _window_pass(_window_pass(src, True), False)
 
 
 TOOL_GLYPH = {
@@ -349,12 +406,14 @@ class Annotator(QWidget):
         self.font_spin.valueChanged.connect(lambda v: setattr(self.canvas, "font_size", v))
         controls.addWidget(self.font_spin)
 
-        controls.addWidget(QLabel("Blur:"))
+        self.blur_label = QLabel("Blur:")
+        controls.addWidget(self.blur_label)
         self.blur_spin = QSpinBox()
         self.blur_spin.setRange(2, 50)
         self.blur_spin.setValue(self.canvas.blur_radius)
         self.blur_spin.valueChanged.connect(lambda v: setattr(self.canvas, "blur_radius", v))
         self.blur_spin.setEnabled(False)
+        self.blur_label.setVisible(False)
         controls.addWidget(self.blur_spin)
 
         controls.addStretch()
@@ -371,9 +430,11 @@ class Annotator(QWidget):
 
     def _select_tool(self, name: str):
         self.canvas.tool = name
+        self.canvas._update_cursor()
         for n, btn in self.tool_btns.items():
             btn.setChecked(n == name)
         self.blur_spin.setEnabled(name == "blur")
+        self.blur_label.setVisible(name == "blur")
 
     def _update_color_btn(self, color: QColor):
         self.color_btn.setStyleSheet(f"background-color: {color.name()}; border: 1px solid gray;")

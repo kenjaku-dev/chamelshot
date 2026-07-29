@@ -60,10 +60,9 @@ jobs:
       - run: uv sync
       - run: uv build
       - name: Upload to PyPI
-        if: secrets.PYPI_TOKEN != ''
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
-        run: uv publish
+        run: '[[ -n "$UV_PUBLISH_TOKEN" ]] && uv publish || echo "No PYPI_TOKEN set, skipping PyPI publish"'
 
   appimage:
     runs-on: ubuntu-latest

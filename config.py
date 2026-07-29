@@ -21,54 +21,54 @@ COMMENTED = """# SnapCap Configuration
 
 [general]
 # Automatically copy screenshot to clipboard after capture
-auto_copy = {general.auto_copy}
+auto_copy = {general[auto_copy]}
 # Automatically save screenshot to the directory below
-auto_save = {general.auto_save}
+auto_save = {general[auto_save]}
 # Show desktop notification after copy/save
-notification = {general.notification}
+notification = {general[notification]}
 
 [save]
 # Directory where auto-saved screenshots go
-directory = "{save.directory}"
-# Filename pattern (uses strftime: %Y %m %d %H %M %S)
-filename_format = "{save.filename_format}"
+directory = "{save[directory]}"
+# Filename pattern (uses strftime: %%Y %%m %%d %%H %%M %%S)
+filename_format = "{save[filename_format]}"
 # Image format: PNG, JPEG, BMP, WEBP
-format = "{save.format}"
+format = "{save[format]}"
 # JPEG/WebP quality 0-100 (-1 = default)
-quality = {save.quality}
+quality = {save[quality]}
 
 [capture]
 # Capture mode: "region" (select area) or "fullscreen"
-mode = "{capture.mode}"
+mode = "{capture[mode]}"
 # Delay in seconds before capture (useful for menus/tooltips)
-delay = {capture.delay}
+delay = {capture[delay]}
 # Include the cursor in the screenshot
-include_cursor = {capture.include_cursor}
+include_cursor = {capture[include_cursor]}
 
 [clipboard]
 # Clipboard tool: "wl-copy", "qt", or "both"
-tool = "{clipboard.tool}"
+tool = "{clipboard[tool]}"
 
 [shortcuts]
 # Keybindings in the preview window
 # Use Qt key sequences: Ctrl+S, Ctrl+C, Ctrl+N, Escape, Ctrl+Shift+A, etc.
-save = "{shortcuts.save}"
-copy = "{shortcuts.copy}"
-new_capture = "{shortcuts.new_capture}"
-close = "{shortcuts.close}"
+save = "{shortcuts[save]}"
+copy = "{shortcuts[copy]}"
+new_capture = "{shortcuts[new_capture]}"
+close = "{shortcuts[close]}"
 
 [preview]
 # Maximum dimension for the thumbnail in preview (larger = slower)
-max_width = {preview.max_width}
+max_width = {preview[max_width]}
 # Initial window size in pixels
-window_width = {preview.window_width}
-window_height = {preview.window_height}
+window_width = {preview[window_width]}
+window_height = {preview[window_height]}
 # Keep preview window on top of other windows
-stay_on_top = {preview.stay_on_top}
+stay_on_top = {preview[stay_on_top]}
 
 [ui]
 # Language for UI text (currently only "en")
-language = "{ui.language}"
+language = "{ui[language]}"
 """
 
 DEFAULTS = {
@@ -153,7 +153,7 @@ def _write_default():
 
 
 def _write_commented(flat: dict):
-    vals = {k: _toml_val(v) for k, v in flat.items()}
+    vals = _unflatten({k: _toml_val(v) for k, v in flat.items()})
     content = COMMENTED.format(**vals)
     with open(CONFIG_PATH, "w") as f:
         f.write(content)

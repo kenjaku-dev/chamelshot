@@ -176,7 +176,7 @@ def install_autostart():
         "Type=Application\n"
         "Name=SnapCap (Daemon)\n"
         "Comment=SnapCap system tray daemon\n"
-        "Exec=snapcap -d\n"
+        "Exec=snapcap\n"
         "Icon=snapcap\n"
         "Terminal=false\n"
         "X-GNOME-Autostart-enabled=true\n"

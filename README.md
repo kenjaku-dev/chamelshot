@@ -76,23 +76,20 @@ chmod +x snapcap-v0.2.0-x86_64.AppImage
 ## Usage
 
 ```bash
-snapcap                          # show launcher window
-snapcap -c                       # capture region → preview, then exit
+snapcap                          # show launcher, stays in tray after capture
+snapcap -c                       # skip launcher, capture directly
 snapcap --capture                # same as -c
-snapcap -d                       # start as daemon (stays in tray)
-snapcap --daemon                 # same as -d
 snapcap --settings               # open settings dialog directly
-snapcap --install-autostart       # add to XDG autostart (starts daemon on login)
+snapcap --install-autostart       # add to XDG autostart
 snapcap --remove-autostart        # remove from XDG autostart
 ```
 
 ### Modes
 
-- **Launcher** (default) — shows a small window with Capture Region, Capture Fullscreen, and Settings buttons
-- **Capture** (`-c`/`--capture`) — skips the launcher, goes straight to capture (for keybindings)
-- **Daemon** (`-d`/`--daemon`) — lives in system tray via StatusNotifierItem. Click tray icon to capture, right-click for menu
+- **Default** — shows launcher window. After capture, preview has **Close** (hides to tray) and **Quit** (exits app) buttons
+- **Capture** (`-c`/`--capture`) — skips the launcher, goes straight to capture
 - **Settings** (`--settings`) — opens the settings dialog standalone
-- **Autostart** (`--install-autostart`/`--remove-autostart`) — manage daemon autostart via XDG autostart spec. Can also be toggled in the Settings UI (General tab)
+- **Autostart** (`--install-autostart`/`--remove-autostart`) — manage autostart. Can also be toggled in the Settings UI (General tab)
 
 ### Annotations
 

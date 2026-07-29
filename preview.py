@@ -87,8 +87,13 @@ class PreviewWindow(QWidget):
         btn_settings.clicked.connect(self._open_settings)
         btn_layout.addWidget(btn_settings)
         btn_close = QPushButton("Close")
+        btn_close.setToolTip("Minimize to tray")
         btn_close.clicked.connect(self.close)
         btn_layout.addWidget(btn_close)
+        btn_quit = QPushButton("Quit")
+        btn_quit.setToolTip("Exit SnapCap")
+        btn_quit.clicked.connect(QApplication.quit)
+        btn_layout.addWidget(btn_quit)
         layout.addLayout(btn_layout)
 
         self._bind_shortcuts()

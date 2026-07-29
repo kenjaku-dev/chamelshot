@@ -1,11 +1,3 @@
-# SnapCap - Screenshot capture tool for Wayland
-# Copyright (C) 2026  Ashraf
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-
 import shutil
 import sys
 from pathlib import Path
@@ -42,19 +34,15 @@ def _make_pixmap() -> QPixmap:
 
 
 class SnapCapApp:
-    def __init__(self, daemon=False, auto_capture=False):
+    def __init__(self, auto_capture=False):
         self.app = QApplication(sys.argv)
         self.app.setApplicationName("SnapCap")
-        self.app.setQuitOnLastWindowClosed(not daemon)
-        self.daemon = daemon
+        self.app.setQuitOnLastWindowClosed(False)
         self.auto_capture = auto_capture
         self.settings = cfg.load()
         self.selector: RegionSelector | None = None
-        self.tray = None
         self._from_launcher = False
-
-        if daemon:
-            self._setup_tray()
+        self._setup_tray()
 
     def _setup_tray(self):
         self._tray_menu = QMenu()
@@ -124,8 +112,8 @@ class SnapCapApp:
     def _on_cancel(self):
         if self._from_launcher:
             self._launcher.show()
-        elif not self.daemon:
-            QTimer.singleShot(0, self.app.quit)
+        else:
+            QTimer.singleShot(0, self._show_launcher)
 
     def _do_capture(self, pixmap):
         self.preview = PreviewWindow(
@@ -134,8 +122,6 @@ class SnapCapApp:
             on_new_capture=self.start_capture,
         )
         self.preview.show()
-        if not self.daemon:
-            self.preview.destroyed.connect(self.app.quit)
 
     def on_region_selected(self, left, top, right, bottom):
         try:
@@ -145,8 +131,6 @@ class SnapCapApp:
             self._do_capture(pixmap)
         except Exception as e:
             QMessageBox.critical(None, "Error", f"Capture failed: {e}")
-            if not self.daemon:
-                self.app.quit()
 
     def start_capture(self):
         mode = self.settings.get("capture.mode", "region")
@@ -158,8 +142,6 @@ class SnapCapApp:
                 self._do_capture(pixmap)
             except Exception as e:
                 QMessageBox.critical(None, "Error", f"Capture failed: {e}")
-                if not self.daemon:
-                    self.app.quit()
         else:
             self.selector = RegionSelector()
             self.selector.region_selected.connect(self.on_region_selected)
@@ -169,7 +151,7 @@ class SnapCapApp:
     def run(self):
         if self.auto_capture:
             QTimer.singleShot(100, self.start_capture)
-        elif not self.daemon:
+        else:
             QTimer.singleShot(0, self._show_launcher)
         return self.app.exec()
 
@@ -193,7 +175,6 @@ def main():
         print("Autostart disabled")
         return
 
-    daemon = "--daemon" in sys.argv or "-d" in sys.argv
     open_settings = "--settings" in sys.argv
     auto_capture = "--capture" in sys.argv or "-c" in sys.argv
 
@@ -203,7 +184,7 @@ def main():
         dlg.exec()
         return
 
-    app = SnapCapApp(daemon=daemon, auto_capture=auto_capture)
+    app = SnapCapApp(auto_capture=auto_capture)
     sys.exit(app.run())
 
 

@@ -89,7 +89,7 @@ def test_autostart_install_remove(monkeypatch, tmp_path):
     cfg.install_autostart()
     assert cfg.autostart_enabled()
     content = (autostart_dir / "snapcap.desktop").read_text()
-    assert "Exec=snapcap -d" in content
+    assert "Exec=snapcap" in content
     cfg.remove_autostart()
     assert not cfg.autostart_enabled()
 

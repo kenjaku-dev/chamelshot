@@ -1,5 +1,8 @@
 # SnapCap
 
+[![CI](https://github.com/kenjaku-dev/snapcap-wayland/actions/workflows/ci.yml/badge.svg)](https://github.com/kenjaku-dev/snapcap-wayland/actions/workflows/ci.yml)
+[![AUR](https://img.shields.io/badge/AUR-snapcap--wayland-blue)](https://aur.archlinux.org/packages/snapcap-wayland)
+
 A lightweight screenshot capture tool for **Wayland (wlroots)** compositors (niri, Sway, Hyprland, etc.).
 
 Built with Python & Qt6. Uses `grim` + `slurp` for capture and region selection.
@@ -8,6 +11,8 @@ Built with Python & Qt6. Uses `grim` + `slurp` for capture and region selection.
 
 - Region selection via `slurp` crosshair (or fullscreen mode)
 - Preview window with Save / Copy to Clipboard
+- **Annotation editor** with 7 tools: Pen, Arrow, Rectangle, Circle, Line, Text, Blur
+- Undo/redo, color picker, stroke width, blur radius
 - Customizable keybindings in preview window
 - Native Wayland clipboard support via `wl-copy`
 - System tray daemon with StatusNotifierItem (Waybar, etc.)
@@ -88,6 +93,22 @@ snapcap --remove-autostart        # remove from XDG autostart
 - **Daemon** (`-d`/`--daemon`) — lives in system tray via StatusNotifierItem. Click tray icon to capture, right-click for menu
 - **Settings** (`--settings`) — opens the settings dialog standalone
 - **Autostart** (`--install-autostart`/`--remove-autostart`) — manage daemon autostart via XDG autostart spec. Can also be toggled in the Settings UI (General tab)
+
+### Annotations
+
+After capturing, click **Annotate** in the preview window to open the editor. Draw over the screenshot using the toolbar tools:
+
+| Tool | Shortcut | Description |
+|------|----------|-------------|
+| ✏️ Pen | Click & drag | Freehand drawing |
+| ➡️ Arrow | Click & drag | Directional arrow with filled head |
+| ▭ Rectangle | Click & drag | Rectangle outline |
+| ○ Circle | Click & drag | Ellipse outline |
+| ╱ Line | Click & drag | Straight line |
+| T Text | Click position | Enter text at cursor |
+| ◎ Blur | Click & drag | Pixel blur region (adjustable radius) |
+
+Press **Escape** to cancel an in-progress drawing. Click **✓ Apply** to bake annotations into the image, or **✗ Cancel** to discard.
 
 ### Configuration
 

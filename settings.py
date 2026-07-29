@@ -69,6 +69,10 @@ class SettingsDialog(QDialog):
         self.chk_notification.setChecked(self.config["general.notification"])
         layout.addWidget(self.chk_notification)
 
+        self.chk_autostart = QCheckBox("Start daemon on login (autostart)")
+        self.chk_autostart.setChecked(cfg.autostart_enabled())
+        layout.addWidget(self.chk_autostart)
+
         layout.addStretch()
         return w
 
@@ -194,5 +198,9 @@ class SettingsDialog(QDialog):
         self.config["preview.window_width"] = self.win_w.value()
         self.config["preview.window_height"] = self.win_h.value()
         self.config["preview.stay_on_top"] = self.stay_on_top.isChecked()
+        if self.chk_autostart.isChecked():
+            cfg.install_autostart()
+        else:
+            cfg.remove_autostart()
         cfg.save(self.config)
         self.accept()

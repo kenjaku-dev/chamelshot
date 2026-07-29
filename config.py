@@ -166,6 +166,31 @@ def _write_toml(data: dict):
     _write_commented(merged)
 
 
+AUTOSTART_PATH = Path.home() / ".config" / "autostart" / "snapcap.desktop"
+
+
+def install_autostart():
+    AUTOSTART_PATH.parent.mkdir(parents=True, exist_ok=True)
+    AUTOSTART_PATH.write_text(
+        "[Desktop Entry]\n"
+        "Type=Application\n"
+        "Name=SnapCap (Daemon)\n"
+        "Comment=SnapCap system tray daemon\n"
+        "Exec=snapcap -d\n"
+        "Icon=snapcap\n"
+        "Terminal=false\n"
+        "X-GNOME-Autostart-enabled=true\n"
+    )
+
+
+def remove_autostart():
+    AUTOSTART_PATH.unlink(missing_ok=True)
+
+
+def autostart_enabled() -> bool:
+    return AUTOSTART_PATH.exists()
+
+
 def generate_save_path(config: dict) -> str:
     save_dir = config.get("save.directory", DEFAULTS["save.directory"])
     fmt = config.get("save.filename_format", DEFAULTS["save.filename_format"])

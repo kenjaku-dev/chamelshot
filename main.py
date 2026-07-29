@@ -183,6 +183,16 @@ def check_deps():
 
 def main():
     check_deps()
+
+    if "--install-autostart" in sys.argv:
+        cfg.install_autostart()
+        print("Autostart enabled")
+        return
+    if "--remove-autostart" in sys.argv:
+        cfg.remove_autostart()
+        print("Autostart disabled")
+        return
+
     daemon = "--daemon" in sys.argv or "-d" in sys.argv
     open_settings = "--settings" in sys.argv
     auto_capture = "--capture" in sys.argv or "-c" in sys.argv

@@ -77,6 +77,8 @@ snapcap --capture                # same as -c
 snapcap -d                       # start as daemon (stays in tray)
 snapcap --daemon                 # same as -d
 snapcap --settings               # open settings dialog directly
+snapcap --install-autostart       # add to XDG autostart (starts daemon on login)
+snapcap --remove-autostart        # remove from XDG autostart
 ```
 
 ### Modes
@@ -85,6 +87,7 @@ snapcap --settings               # open settings dialog directly
 - **Capture** (`-c`/`--capture`) — skips the launcher, goes straight to capture (for keybindings)
 - **Daemon** (`-d`/`--daemon`) — lives in system tray via StatusNotifierItem. Click tray icon to capture, right-click for menu
 - **Settings** (`--settings`) — opens the settings dialog standalone
+- **Autostart** (`--install-autostart`/`--remove-autostart`) — manage daemon autostart via XDG autostart spec. Can also be toggled in the Settings UI (General tab)
 
 ### Configuration
 

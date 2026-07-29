@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=SnapCap
+Comment=Screenshot capture tool for Wayland (wlroots)
+Exec=snapcap
+Icon=snapcap
+Categories=Utility;Graphics;
+Terminal=false
+StartupNotify=true

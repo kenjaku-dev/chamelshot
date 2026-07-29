@@ -19,6 +19,7 @@ dev = [
     "ruff>=0.11.0",
     "pyright>=1.1.400",
     "pytest>=8.0",
+    "pyinstaller>=6.0",
 ]
 
 [tool.ruff]
@@ -35,6 +36,9 @@ reportMissingImports = false
 
 [tool.uv]
 package = true
+
+[tool.setuptools]
+py-modules = ["__init__", "main", "capture", "config", "overlay", "preview", "settings", "tray"]
 
 [tool.pytest.ini_options]
 python_files = ["test_*.py"]

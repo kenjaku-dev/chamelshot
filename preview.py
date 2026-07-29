@@ -19,11 +19,13 @@ from PySide6.QtWidgets import (
     QLabel,
     QMessageBox,
     QPushButton,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
 import config as cfg
+from editor import Annotator
 
 
 class PreviewWindow(QWidget):
@@ -55,16 +57,26 @@ class PreviewWindow(QWidget):
                 Qt.TransformationMode.SmoothTransformation,
             )
 
-        self.label = QLabel()
-        self.label.setPixmap(display)
-        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.label)
+        self.stack = QStackedWidget()
+        self.preview_label = QLabel()
+        self.preview_label.setPixmap(display)
+        self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.stack.addWidget(self.preview_label)
+        self.annotator = Annotator(pixmap)
+        self.annotator.accepted.connect(self._on_annotated)
+        self.annotator.cancelled.connect(self._show_preview)
+        self.stack.addWidget(self.annotator)
+        self.stack.setCurrentWidget(self.preview_label)
+        layout.addWidget(self.stack, 1)
 
         btn_layout = QHBoxLayout()
         btn_capture = QPushButton("New Capture")
         btn_capture.clicked.connect(self.new_capture)
         btn_layout.addWidget(btn_capture)
         btn_layout.addStretch()
+        btn_annotate = QPushButton("Annotate")
+        btn_annotate.clicked.connect(self._show_annotator)
+        btn_layout.addWidget(btn_annotate)
         btn_save = QPushButton("Save")
         btn_save.clicked.connect(self.save)
         btn_layout.addWidget(btn_save)
@@ -185,6 +197,35 @@ class PreviewWindow(QWidget):
                 self.close()
         except Exception as e:
             QMessageBox.warning(self, "Copy Error", str(e))
+
+    def _show_annotator(self):
+        self.annotator.canvas.source = self.pixmap
+        self.annotator.canvas.annotations.clear()
+        self.annotator.canvas._history.clear()
+        self.annotator.canvas._redo_stack.clear()
+        self.annotator.canvas.update()
+        self.stack.setCurrentWidget(self.annotator)
+
+    def _show_preview(self):
+        self.stack.setCurrentWidget(self.preview_label)
+
+    def _on_annotated(self, annotated: QPixmap):
+        self.pixmap = annotated
+        self._update_preview_display()
+        self._show_preview()
+
+    def _update_preview_display(self):
+        max_w = self.cfg.get("preview.max_width", 800)
+        w, h = self.pixmap.width(), self.pixmap.height()
+        display = self.pixmap
+        if w > max_w or h > max_w:
+            display = self.pixmap.scaled(
+                max_w,
+                max_w,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        self.preview_label.setPixmap(display)
 
     def new_capture(self):
         self.close()

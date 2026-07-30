@@ -128,7 +128,7 @@ class PreviewWindow(QWidget):
         path = hist_dir / f"screenshot_{ts}.png"
         pixmap.save(str(path), "PNG")
         entries = sorted(hist_dir.glob("screenshot_*.png"), reverse=True)
-        for old in entries[cfg.MAX_HISTORY:]:
+        for old in entries[cfg.MAX_HISTORY :]:
             old.unlink(missing_ok=True)
 
     def _auto_save(self):

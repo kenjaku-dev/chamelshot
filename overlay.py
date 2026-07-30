@@ -89,12 +89,14 @@ class WindowSelector(QObject):
         try:
             result = subprocess.run(
                 ["swaymsg", "-t", "get_tree"],
-                capture_output=True, timeout=5,
+                capture_output=True,
+                timeout=5,
             )
             if result.returncode != 0:
                 return []
             tree = json.loads(result.stdout)
             boxes = []
+
             def walk(node):
                 if node.get("type") == "output" and node.get("name", "").startswith("__"):
                     return
@@ -107,6 +109,7 @@ class WindowSelector(QObject):
                     walk(child)
                 for child in node.get("floating_nodes", []):
                     walk(child)
+
             for node in tree.get("nodes", []):
                 walk(node)
             return boxes
@@ -117,7 +120,8 @@ class WindowSelector(QObject):
         try:
             result = subprocess.run(
                 ["hyprctl", "clients", "-j"],
-                capture_output=True, timeout=5,
+                capture_output=True,
+                timeout=5,
             )
             if result.returncode != 0:
                 return []
@@ -145,11 +149,7 @@ class CountdownOverlay(QWidget):
         self._remaining = max(1, seconds)
         self._original = self._remaining
 
-        self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint
-            | Qt.WindowType.WindowStaysOnTopHint
-            | Qt.WindowType.Tool
-        )
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.showFullScreen()

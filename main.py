@@ -92,7 +92,7 @@ class ChamelShotApp:
         if not hist.is_dir():
             self._history_menu.addAction("(empty)").setEnabled(False)
             return
-        entries = sorted(hist.glob("screenshot_*.png"), reverse=True)[:cfg.MAX_HISTORY]
+        entries = sorted(hist.glob("screenshot_*.png"), reverse=True)[: cfg.MAX_HISTORY]
         if not entries:
             self._history_menu.addAction("(empty)").setEnabled(False)
             return

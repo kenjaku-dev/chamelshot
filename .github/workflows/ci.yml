@@ -66,6 +66,12 @@ jobs:
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
         run: '[[ -n "$UV_PUBLISH_TOKEN" ]] && uv publish || echo "No PYPI_TOKEN set, skipping PyPI publish"'
+      - name: Upload assets to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --notes "" 2>/dev/null || true
+          gh release upload "${GITHUB_REF_NAME}" dist/*.whl dist/*.tar.gz --clobber
 
   appimage:
     runs-on: ubuntu-latest
@@ -86,5 +92,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           asset="chamelshot-${GITHUB_REF_NAME#v}-x86_64.AppImage"
+          gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --notes "" 2>/dev/null || true
           gh release delete-asset "${GITHUB_REF_NAME}" "${asset}" --yes 2>/dev/null || true
           gh release upload "${GITHUB_REF_NAME}" "dist/${asset}"

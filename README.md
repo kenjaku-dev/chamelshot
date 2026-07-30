@@ -2,27 +2,66 @@
 
 [![CI](https://github.com/kenjaku-dev/chamelshot/actions/workflows/ci.yml/badge.svg)](https://github.com/kenjaku-dev/chamelshot/actions/workflows/ci.yml)
 [![AUR](https://img.shields.io/badge/AUR-chamelshot-blue)](https://aur.archlinux.org/packages/chamelshot)
+[![PyPI](https://img.shields.io/pypi/v/chamelshot)](https://pypi.org/project/chamelshot/)
+[![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
 
-A lightweight screenshot capture tool for Wayland (wlroots).
+A lightweight screenshot capture tool for Wayland (wlroots) with a polished Qt interface.
 
-Built with PySide6, providing a native system tray and intuitive launcher UI.
-
-Combines `grim` + `slurp` under the hood, but abstracts away the CLI with a polished Qt interface featuring screenshot preview, annotation tools (freehand, arrow, rectangle, ellipse, text, highlighter, numbering), and blur effects.
+Combines `grim` + `slurp` under the hood, abstracting the CLI into a native system tray daemon with preview, annotation, and capture delay.
 
 ---
 
 ## Features
 
-- **Region capture** — drag to select, click on a window, or click on a monitor
-- **Multiple annotation tools** — freehand, arrow, rectangle, ellipse, text, highlighter, numbering (press `Ctrl+Z`/`Ctrl+Y` to undo/redo)
-- **Blur** — pixelate sensitive areas
-- **Preview window** — edit, save, copy to clipboard, or discard
-- **Window capture** — click any open window to capture it
-- **Countdown overlay** — visual countdown when delay is set
-- **Screenshot history** — previous captures accessible from the tray menu
-- **Settings UI** — auto-copy, auto-save, notification, filename format, capture delay
-- **Autostart** — optional XDG autostart integration
-- **System tray** — persistent StatusNotifierItem with icon (stays after capture)
+### Capture Modes
+- **Region** — drag to select an area; click to snap to window/monitor boundaries
+- **Window** — pick from visible windows via `swaymsg`/`hyprctl`, then snap-select with `slurp -r`
+- **Fullscreen** — capture the entire output with one click
+- **Delay** — configurable countdown overlay (1-30s) for menus, tooltips, or hover states
+
+### Annotation Tools (9 tools)
+| Tool | Description |
+|------|-------------|
+| Pen | Freehand drawing |
+| Highlighter | Semi-transparent marker (5× width, alpha 80) |
+| Arrow | Directional pointer with filled head |
+| Rectangle | Outlined box |
+| Oval | Outlined ellipse |
+| Line | Straight line |
+| Text | Click-to-type label (custom font size) |
+| Numbering | Auto-incrementing numbered circles (1, 2, 3…) |
+| Blur | Pixelation box with adjustable radius |
+
+**Shortcuts:** `Ctrl+Z` undo, `Ctrl+Y` redo, `Escape` cancel current annotation
+
+### Preview Window
+- View, annotate, save, or copy to clipboard
+- Re-capture without leaving the preview
+- Keyboard shortcuts for save/copy/close (configurable in settings)
+- Auto-save and auto-copy on capture (configurable)
+
+### System Tray
+- Persistent StatusNotifierItem (stays after capture, no daemon flag needed)
+- Right-click menu: Capture Region / Capture Window / Capture Fullscreen / History / Settings / Quit
+- Left-click: quick capture (uses default mode)
+- Middle-click: open settings
+
+### Screenshot History
+- Automatic save to `~/.cache/chamelshot/history/` on every capture
+- Last 20 screenshots retained (oldest auto-pruned)
+- Browse directly from tray menu (opens with `xdg-open`)
+
+### Capture Delay
+- Configure in settings (0-30 seconds)
+- Visual fullscreen countdown overlay (semi-transparent black, large white numerals)
+- Press `Escape` to cancel countdown
+
+### Window Capture
+- Reads visible window geometry from `swaymsg -t get_tree` (Sway) or `hyprctl clients -j` (Hyprland)
+- Passes bounding boxes to `slurp -r` for snap selection
+- Works automatically — no manual window list or menu needed
+
+---
 
 ## Installation
 
@@ -47,7 +86,7 @@ uv sync
 uv run python main.py
 ```
 
-### AppImage
+### AppImage (portable)
 
 Download from [GitHub Releases](https://github.com/kenjaku-dev/chamelshot/releases):
 
@@ -55,6 +94,10 @@ Download from [GitHub Releases](https://github.com/kenjaku-dev/chamelshot/releas
 chmod +x chamelshot-v0.3.0-x86_64.AppImage
 ./chamelshot-v0.3.0-x86_64.AppImage
 ```
+
+No dependencies required beyond `grim` and `slurp` at runtime.
+
+---
 
 ## Usage
 
@@ -72,18 +115,24 @@ chamelshot --remove-autostart        # remove from XDG autostart
 **Sway:**
 ```
 bindsym Print exec chamelshot
+bindsym Shift+Print exec "chamelshot --capture"
+bindsym Ctrl+Print exec "chamelshot --settings"
 ```
 
 **Hyprland:**
 ```
 bind = , Print, exec, chamelshot
+bind = SHIFT, Print, exec, chamelshot -c
+bind = CTRL, Print, exec, chamelshot --settings
 ```
+
+---
 
 ## Configuration
 
-Settings are stored in `~/.config/chamelshot/config.toml` (auto-created with defaults on first run). You can edit it directly or use the settings UI from the preview window or tray menu.
+Settings are stored in `~/.config/chamelshot/config.toml` (auto-created with defaults on first run). Edit directly or use the Settings UI from the preview window or tray menu.
 
-### Defaults
+### Full defaults
 
 ```toml
 [general]
@@ -98,15 +147,45 @@ format = "PNG"
 quality = -1
 
 [capture]
-mode = "region"
-delay = 0
+mode = "region"       # region | window | fullscreen
+delay = 0             # seconds (0-30)
+include_cursor = true
+
+[preview]
+stay_on_top = true
+window_width = 600
+window_height = 450
+max_width = 800
+
+[clipboard]
+tool = "wl-copy"      # wl-copy | qt | both
+
+[shortcuts]
+save = ""
+copy = ""
+close = ""
+new_capture = ""
 ```
+
+---
 
 ## Dependencies
 
-- **Runtime:** `grim`, `slurp`, `python`, `python-pyside6`, `wl-clipboard` (optional)
-- **Build:** `python-build`, `python-installer`, `python-wheel`
+| Type | Package |
+|------|---------|
+| Runtime (CLI) | `grim`, `slurp` |
+| Runtime (Python) | `python`, `pyside6`, `dbus-python`, `pygobject` |
+| Optional | `wl-clipboard` (Wayland clipboard), `swaymsg` or `hyprctl` (window capture) |
+| Build | `python-build`, `python-installer`, `python-wheel`, `pyinstaller` (AppImage) |
+
+---
+
+## Migration from SnapCap
+
+v0.3.0 is a rename from the original `snapcap-wayland` project. If you have an existing `~/.config/snapcap/` directory, ChamelShot will auto-create a fresh config at `~/.config/chamelshot/`. The AUR package `chamelshot` conflicts with `snapcap-wayland`.
+
+---
 
 ## License
 
-GNU General Public License v3.0 or later.
+GNU General Public License v3.0 or later. See [LICENSE](LICENSE).

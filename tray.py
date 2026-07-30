@@ -24,7 +24,7 @@ WATCHER_PATH = "/StatusNotifierWatcher"
 def _icon_data(pixmap):
     img = pixmap.toImage().convertToFormat(QImage.Format.Format_RGBA8888)
     w, h = img.width(), img.height()
-    raw = bytes(img.constBits().asarray(img.sizeInBytes()))
+    raw = bytes(img.constBits())
     return [w, h, list(raw)]
 
 

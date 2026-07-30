@@ -1,4 +1,4 @@
-# SnapCap - Screenshot capture tool for Wayland
+# ChamelShot - Screenshot capture tool for Wayland
 # Copyright (C) 2026  Ashraf
 #
 # This program is free software: you can redistribute it and/or modify
@@ -11,10 +11,12 @@ import os
 import tomllib
 from pathlib import Path
 
-CONFIG_DIR = Path.home() / ".config" / "snapcap"
+CONFIG_DIR = Path.home() / ".config" / "chamelshot"
 CONFIG_PATH = CONFIG_DIR / "config.toml"
+HISTORY_DIR = Path.home() / ".cache" / "chamelshot" / "history"
+MAX_HISTORY = 20
 
-COMMENTED = """# SnapCap Configuration
+COMMENTED = """# ChamelShot Configuration
 # Edit this file to customize everything.
 # After saving, changes take effect on next capture.
 # Restart the daemon if running in --daemon mode.
@@ -76,7 +78,7 @@ DEFAULTS = {
     "general.auto_save": False,
     "general.notification": True,
     "save.directory": str(Path.home() / "Pictures" / "Screenshots"),
-    "save.filename_format": "snapcap_%Y%m%d_%H%M%S.png",
+    "save.filename_format": "chamelshot_%Y%m%d_%H%M%S.png",
     "save.format": "PNG",
     "save.quality": -1,
     "capture.mode": "region",
@@ -166,7 +168,7 @@ def _write_toml(data: dict):
     _write_commented(merged)
 
 
-AUTOSTART_PATH = Path.home() / ".config" / "autostart" / "snapcap.desktop"
+AUTOSTART_PATH = Path.home() / ".config" / "autostart" / "chamelshot.desktop"
 
 
 def install_autostart():
@@ -174,10 +176,10 @@ def install_autostart():
     AUTOSTART_PATH.write_text(
         "[Desktop Entry]\n"
         "Type=Application\n"
-        "Name=SnapCap (Daemon)\n"
-        "Comment=SnapCap system tray daemon\n"
-        "Exec=snapcap\n"
-        "Icon=snapcap\n"
+        "Name=ChamelShot\n"
+        "Comment=ChamelShot system tray daemon\n"
+        "Exec=chamelshot\n"
+        "Icon=chamelshot\n"
         "Terminal=false\n"
         "X-GNOME-Autostart-enabled=true\n"
     )

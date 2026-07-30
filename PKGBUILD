@@ -1,12 +1,13 @@
 # Maintainer: kenjaku-dev <kenjaku.dev@gmail.com>
 
-pkgname=snapcap-wayland
-pkgver=0.2.0
+pkgname=chamelshot
+pkgver=0.3.0
 pkgrel=1
 pkgdesc="A lightweight screenshot capture tool for Wayland (wlroots)"
 arch=('x86_64')
-url="https://github.com/kenjaku-dev/snapcap-wayland"
+url="https://github.com/kenjaku-dev/chamelshot"
 license=('GPL3')
+conflicts=('snapcap-wayland')
 depends=(
   'grim'
   'python'
@@ -22,9 +23,9 @@ makedepends=(
   'python-wheel'
 )
 source=("$url/archive/v$pkgver.tar.gz"
-        "snapcap-wayland.desktop")
-sha256sums=('66ec050fb6ab7a4aa16d28709d7095cd31adb4156cbc612808618e242d0f7d40'
-            '6fcb9d9976beeb4bf24ff0f12a424c4d6dc7d42ac01c2a30d11e24003cde5d7f')
+        "chamelshot.desktop")
+sha256sums=('SKIP'
+            'SKIP')
 
 build() {
   cd "$srcdir/$pkgname-$pkgver"
@@ -35,6 +36,6 @@ package() {
   cd "$srcdir/$pkgname-$pkgver"
   python -m installer --destdir="$pkgdir" dist/*.whl
 
-  install -Dm644 "$srcdir/snapcap-wayland.desktop" "$pkgdir/usr/share/applications/snapcap-wayland.desktop"
-  install -Dm644 icon.png "$pkgdir/usr/share/pixmaps/snapcap.png"
+  install -Dm644 "$srcdir/chamelshot.desktop" "$pkgdir/usr/share/applications/chamelshot.desktop"
+  install -Dm644 icon.png "$pkgdir/usr/share/pixmaps/chamelshot.png"
 }

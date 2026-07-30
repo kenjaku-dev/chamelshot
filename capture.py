@@ -1,4 +1,4 @@
-# SnapCap - Screenshot capture tool for Wayland
+# ChamelShot - Screenshot capture tool for Wayland
 # Copyright (C) 2026  Ashraf
 #
 # This program is free software: you can redistribute it and/or modify

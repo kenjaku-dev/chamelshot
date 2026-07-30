@@ -84,12 +84,12 @@ def test_save_writes_and_reloads(monkeypatch, tmp_path):
 
 def test_autostart_install_remove(monkeypatch, tmp_path):
     autostart_dir = tmp_path / "autostart"
-    monkeypatch.setattr(cfg, "AUTOSTART_PATH", autostart_dir / "snapcap.desktop")
+    monkeypatch.setattr(cfg, "AUTOSTART_PATH", autostart_dir / "chamelshot.desktop")
     assert not cfg.autostart_enabled()
     cfg.install_autostart()
     assert cfg.autostart_enabled()
-    content = (autostart_dir / "snapcap.desktop").read_text()
-    assert "Exec=snapcap" in content
+    content = (autostart_dir / "chamelshot.desktop").read_text()
+    assert "Exec=chamelshot" in content
     cfg.remove_autostart()
     assert not cfg.autostart_enabled()
 

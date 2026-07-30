@@ -1,4 +1,4 @@
-# SnapCap - Screenshot capture tool for Wayland
+# ChamelShot - Screenshot capture tool for Wayland
 # Copyright (C) 2026  Ashraf
 #
 # This program is free software: you can redistribute it and/or modify
@@ -28,7 +28,7 @@ import config as cfg
 class SettingsDialog(QDialog):
     def __init__(self, parent=None, config=None):
         super().__init__(parent)
-        self.setWindowTitle("SnapCap Settings")
+        self.setWindowTitle("ChamelShot Settings")
         self.setMinimumWidth(520)
         self.setMinimumHeight(400)
         self.config = config or cfg.load()
@@ -110,7 +110,7 @@ class SettingsDialog(QDialog):
         layout = QFormLayout(w)
 
         self.capture_mode = QComboBox()
-        self.capture_mode.addItems(["region", "fullscreen"])
+        self.capture_mode.addItems(["region", "window", "fullscreen"])
         self.capture_mode.setCurrentText(self.config["capture.mode"])
         layout.addRow("Mode:", self.capture_mode)
 

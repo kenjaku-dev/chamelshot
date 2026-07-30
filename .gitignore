@@ -6,7 +6,7 @@ wheels/
 *.egg-info
 .venv
 *.spec
-snapcap-bin
+chamelshot-bin
 .ruff_cache/
 .pytype/
 .mypy_cache/

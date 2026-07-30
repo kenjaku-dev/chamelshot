@@ -1,4 +1,4 @@
-# SnapCap - Screenshot capture tool for Wayland
+# ChamelShot - Screenshot capture tool for Wayland
 # Copyright (C) 2026  Ashraf
 #
 # This program is free software: you can redistribute it and/or modify
@@ -60,8 +60,8 @@ class _SNIObject(dbus.service.Object):
         icon = _icon_data(self._icon_pm) if self._icon_pm else [0, 0, []]
         return {
             "Category": "Utility",
-            "Id": "snapcap",
-            "Title": "SnapCap",
+            "Id": "chamelshot",
+            "Title": "ChamelShot",
             "Status": "Active",
             "IconThemePath": dbus.Array([], signature="s"),
             "IconPixmap": icon,
@@ -70,7 +70,7 @@ class _SNIObject(dbus.service.Object):
         }
 
 
-class SnapCapTray:
+class ChamelShotTray:
     def __init__(self, icon_pixmap: QPixmap, on_activate=None, on_settings=None, on_menu=None):
         self._icon = icon_pixmap
         self._callbacks = {

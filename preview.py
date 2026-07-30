@@ -1,4 +1,4 @@
-# SnapCap - Screenshot capture tool for Wayland
+# ChamelShot - Screenshot capture tool for Wayland
 # Copyright (C) 2026  Ashraf
 #
 # This program is free software: you can redistribute it and/or modify
@@ -6,6 +6,7 @@
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
+import datetime
 import os
 import shutil
 import subprocess
@@ -34,7 +35,7 @@ class PreviewWindow(QWidget):
         self.pixmap = pixmap
         self.cfg = config or cfg.load()
         self.on_new_capture = on_new_capture
-        self.setWindowTitle("SnapCap - Screenshot")
+        self.setWindowTitle("ChamelShot - Screenshot")
 
         if self.cfg.get("preview.stay_on_top", True):
             self.setWindowFlags(Qt.WindowType.WindowStaysOnTopHint)
@@ -91,7 +92,7 @@ class PreviewWindow(QWidget):
         btn_close.clicked.connect(self.close)
         btn_layout.addWidget(btn_close)
         btn_quit = QPushButton("Quit")
-        btn_quit.setToolTip("Exit SnapCap")
+        btn_quit.setToolTip("Exit ChamelShot")
         btn_quit.clicked.connect(QApplication.quit)
         btn_layout.addWidget(btn_quit)
         layout.addLayout(btn_layout)
@@ -120,6 +121,16 @@ class PreviewWindow(QWidget):
         if self.cfg.get("general.auto_copy"):
             QTimer.singleShot(50, lambda: self.copy_to_clipboard(closing=False))
 
+    def _save_to_history(self, pixmap: QPixmap):
+        hist_dir = cfg.HISTORY_DIR
+        hist_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        path = hist_dir / f"screenshot_{ts}.png"
+        pixmap.save(str(path), "PNG")
+        entries = sorted(hist_dir.glob("screenshot_*.png"), reverse=True)
+        for old in entries[cfg.MAX_HISTORY:]:
+            old.unlink(missing_ok=True)
+
     def _auto_save(self):
         path = cfg.generate_save_path(self.cfg)
         fmt = self.cfg.get("save.format", "PNG")
@@ -129,13 +140,14 @@ class PreviewWindow(QWidget):
             self.pixmap.save(path, fmt, quality)
         else:
             self.pixmap.save(path, fmt)
+        self._save_to_history(self.pixmap)
 
     def _notify(self, message: str):
         if not self.cfg.get("general.notification", True):
             return
         try:
             subprocess.run(
-                ["notify-send", "SnapCap", message],
+                ["notify-send", "ChamelShot", message],
                 timeout=3,
                 stdin=subprocess.DEVNULL,
             )
@@ -168,7 +180,7 @@ class PreviewWindow(QWidget):
             path, _ = QFileDialog.getSaveFileName(
                 self,
                 "Save Screenshot",
-                os.path.expanduser("~/snapcap.png"),
+                os.path.expanduser("~/chamelshot.png"),
                 f"{fmt} (*.{fmt.lower()})",
                 options=QFileDialog.Option.DontUseNativeDialog,
             )
@@ -178,6 +190,7 @@ class PreviewWindow(QWidget):
                     px.save(path, fmt, quality)
                 else:
                     px.save(path, fmt)
+                self._save_to_history(px)
                 self._notify(f"Saved to {path}")
                 self.close()
         except Exception as e:

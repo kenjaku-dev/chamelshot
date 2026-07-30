@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-TOOLS = ["pen", "arrow", "rect", "circle", "line", "text", "blur"]
+TOOLS = ["pen", "highlighter", "arrow", "rect", "circle", "line", "text", "numbering", "blur"]
 
 
 @dataclass
@@ -37,6 +37,7 @@ class Annotation:
     text: str = ""
     blur_radius: int = 10
     font_size: int = 16
+    number: int = 0
 
 
 class AnnotationCanvas(QWidget):
@@ -50,6 +51,7 @@ class AnnotationCanvas(QWidget):
         self.pen_width = 3.0
         self.blur_radius = 10
         self.font_size = 16
+        self.numbering_counter: int = 0
         self._history: list[list[Annotation]] = []
         self._redo_stack: list[list[Annotation]] = []
 
@@ -79,11 +81,13 @@ class AnnotationCanvas(QWidget):
     def _update_cursor(self):
         cursors = {
             "pen": Qt.CursorShape.CrossCursor,
+            "highlighter": Qt.CursorShape.CrossCursor,
             "arrow": Qt.CursorShape.CrossCursor,
             "rect": Qt.CursorShape.CrossCursor,
             "circle": Qt.CursorShape.CrossCursor,
             "line": Qt.CursorShape.CrossCursor,
             "text": Qt.CursorShape.IBeamCursor,
+            "numbering": Qt.CursorShape.CrossCursor,
             "blur": Qt.CursorShape.CrossCursor,
         }
         self.setCursor(cursors.get(self.tool, Qt.CursorShape.ArrowCursor))
@@ -131,6 +135,11 @@ class AnnotationCanvas(QWidget):
         if event.key() == Qt.Key.Key_Escape and self.current is not None:
             self.current = None
             self.update()
+        elif event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            if event.key() == Qt.Key.Key_Z and not event.isAutoRepeat():
+                self.undo()
+            elif event.key() == Qt.Key.Key_Y and not event.isAutoRepeat():
+                self.redo()
         super().keyPressEvent(event)
 
     def paintEvent(self, event):  # noqa: N802
@@ -160,13 +169,21 @@ class AnnotationCanvas(QWidget):
 
             if ann.tool == "blur":
                 self._paint_blur(p, ann, canvas_size, scale)
-            elif ann.tool == "pen":
+            elif ann.tool in ("pen", "highlighter"):
                 if len(ann.points) > 1:
                     path = QPainterPath()
                     path.moveTo(ann.points[0])
                     for pt in ann.points[1:]:
                         path.lineTo(pt)
-                    p.strokePath(path, pen)
+                    if ann.tool == "highlighter":
+                        c = QColor(ann.color)
+                        c.setAlpha(80)
+                        hl_pen = QPen(c, max(1, ann.width * 5 * (1 / scale)))
+                        hl_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                        hl_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+                        p.strokePath(path, hl_pen)
+                    else:
+                        p.strokePath(path, pen)
             elif ann.tool == "arrow" and len(ann.points) >= 2:
                 self._paint_arrow(p, ann, pen)
             elif ann.tool in ("rect", "circle") and len(ann.points) >= 2:
@@ -185,6 +202,17 @@ class AnnotationCanvas(QWidget):
                 p.setFont(font)
                 p.setPen(pen)
                 p.drawText(ann.points[0], ann.text)
+            elif ann.tool == "numbering" and ann.points:
+                pt = ann.points[0]
+                r = max(12, int(ann.font_size * 0.6 * (1 / scale)))
+                p.setPen(QPen(ann.color, max(2, ann.width * (1 / scale))))
+                p.setBrush(Qt.GlobalColor.white)
+                p.drawEllipse(pt, r, r)
+                font = QFont()
+                font.setPixelSize(int(ann.font_size * (1 / scale)))
+                p.setFont(font)
+                p.setPen(QPen(ann.color, 1))
+                p.drawText(QRectF(pt.x() - r, pt.y() - r, r * 2, r * 2), Qt.AlignmentFlag.AlignCenter, str(ann.number))
             p.restore()
 
     def _paint_blur(self, p: QPainter, ann: Annotation, canvas_size, scale: float):
@@ -231,6 +259,14 @@ class AnnotationCanvas(QWidget):
                 ann.font_size = self.font_size
                 self.annotations.append(ann)
                 self.update()
+            return
+        if self.tool == "numbering":
+            self.numbering_counter += 1
+            ann.points.append(pos)
+            ann.number = self.numbering_counter
+            ann.font_size = self.font_size
+            self.annotations.append(ann)
+            self.update()
             return
         if self.tool == "blur":
             ann.blur_radius = self.blur_radius
@@ -317,13 +353,15 @@ def _box_blur(src: QImage, radius: int) -> QImage:
 
 
 TOOL_GLYPH = {
-    "pen": "✏️",
-    "arrow": "➡️",
-    "rect": "▭",
-    "circle": "○",
-    "line": "╱",
+    "pen": "Pen",
+    "highlighter": "HL",
+    "arrow": "Arr",
+    "rect": "Rect",
+    "circle": "Oval",
+    "line": "Line",
     "text": "T",
-    "blur": "◎",
+    "numbering": "No.",
+    "blur": "Blur",
 }
 
 

@@ -1,6 +1,6 @@
 [project]
-name = "snapcap"
-version = "0.2.0"
+name = "chamelshot"
+version = "0.3.0"
 license = "GPL-3.0-only"
 description = "A lightweight screenshot capture tool for Wayland (wlroots)"
 readme = "README.md"
@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.scripts]
-snapcap = "main:main"
+chamelshot = "main:main"
 
 [project.optional-dependencies]
 dev = [

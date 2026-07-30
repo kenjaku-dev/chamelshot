@@ -85,6 +85,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          asset="snapcap-${GITHUB_REF_NAME#v}-x86_64.AppImage"
+          asset="chamelshot-${GITHUB_REF_NAME#v}-x86_64.AppImage"
           gh release delete-asset "${GITHUB_REF_NAME}" "${asset}" --yes 2>/dev/null || true
           gh release upload "${GITHUB_REF_NAME}" "dist/${asset}"

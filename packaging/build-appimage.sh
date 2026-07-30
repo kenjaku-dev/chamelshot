@@ -4,7 +4,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APPDIR="$REPO_ROOT/build/AppDir"
 
 cd "$REPO_ROOT"
-uv run pyinstaller --onedir --name snapcap \
+uv run pyinstaller --onedir --name chamelshot \
   --paths . \
   --hidden-import config \
   --hidden-import capture \
@@ -25,20 +25,20 @@ uv run pyinstaller --onedir --name snapcap \
   --collect-all dbus \
   -y main.py
 
-mkdir -p "$APPDIR/usr/lib/snapcap"
-cp -r dist/snapcap/* "$APPDIR/usr/lib/snapcap/"
-cp packaging/snapcap.desktop "$APPDIR/"
-cp icon.png "$APPDIR/snapcap.png"
+mkdir -p "$APPDIR/usr/lib/chamelshot"
+cp -r dist/chamelshot/* "$APPDIR/usr/lib/chamelshot/"
+cp packaging/chamelshot.desktop "$APPDIR/"
+cp icon.png "$APPDIR/chamelshot.png"
 
 cat > "$APPDIR/AppRun" << 'EORUN'
 #!/bin/bash
 APPDIR="$(dirname "$(readlink -f "$0")")"
-exec "$APPDIR/usr/lib/snapcap/snapcap" "$@"
+exec "$APPDIR/usr/lib/chamelshot/chamelshot" "$@"
 EORUN
 chmod +x "$APPDIR/AppRun"
 
 cat > "$APPDIR/.DirIcon" << 'EODIR'
-snapcap.png
+chamelshot.png
 EODIR
 
 if ! command -v appimagetool &>/dev/null; then
@@ -51,5 +51,5 @@ if ! command -v appimagetool &>/dev/null; then
   APPIMAGETOOL="$APPIMAGETOOL"
 fi
 
-ARCH=x86_64 "$APPIMAGETOOL" "$APPDIR" "$REPO_ROOT/dist/snapcap-${VERSION}-x86_64.AppImage"
-echo "AppImage: dist/snapcap-${VERSION}-x86_64.AppImage"
+ARCH=x86_64 "$APPIMAGETOOL" "$APPDIR" "$REPO_ROOT/dist/chamelshot-${VERSION}-x86_64.AppImage"
+echo "AppImage: dist/chamelshot-${VERSION}-x86_64.AppImage"

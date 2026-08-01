@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=ChamelShot
-Comment=Lightweight screenshot capture tool for Wayland
-Exec=chamelshot
-Icon=chamelshot
-Categories=Utility;Graphics;
-Terminal=false
-StartupNotify=false

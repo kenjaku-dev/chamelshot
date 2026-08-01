@@ -195,3 +195,11 @@ class CountdownOverlay(QWidget):
             self.close()
             self.cancelled.emit()
         super().keyPressEvent(event)
+
+    def closeEvent(self, event):  # noqa: N802
+        # External close (compositor keybind, window manager): stop the count
+        # and release the capture lock so _capturing isn't left stuck True.
+        if self._timer.isActive():
+            self._timer.stop()
+            self.cancelled.emit()
+        super().closeEvent(event)

@@ -301,10 +301,11 @@ class PreviewWindow(QWidget):
         if not self.cfg.get("general.notification", True):
             return
         try:
-            subprocess.run(
+            subprocess.Popen(
                 ["notify-send", "ChamelShot", message],
-                timeout=3,
                 stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
             )
         except Exception:
             pass

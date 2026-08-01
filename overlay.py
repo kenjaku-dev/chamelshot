@@ -10,6 +10,7 @@ import json
 import os
 import re
 import subprocess
+import threading
 
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from PySide6.QtGui import QFont
@@ -24,6 +25,9 @@ class RegionSelector(QObject):
         super().__init__()
 
     def show(self):
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self):
         try:
             result = subprocess.run(
                 ["slurp", "-f", "%x %y %w %h"],
@@ -53,6 +57,9 @@ class WindowSelector(QObject):
         super().__init__()
 
     def show(self):
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self):
         try:
             boxes = self._get_window_boxes()
             if not boxes:

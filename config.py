@@ -8,12 +8,15 @@
 
 import datetime
 import os
+import re
 import tomllib
 from pathlib import Path
 
 CONFIG_DIR = Path.home() / ".config" / "chamelshot"
 CONFIG_PATH = CONFIG_DIR / "config.toml"
-HISTORY_DIR = Path.home() / ".cache" / "chamelshot" / "history"
+CACHE_DIR = Path.home() / ".cache" / "chamelshot"
+HISTORY_DIR = CACHE_DIR / "history"
+IPC_SOCKET_PATH = CACHE_DIR / "daemon.sock"
 MAX_HISTORY = 20
 
 COMMENTED = """# ChamelShot Configuration
@@ -154,9 +157,23 @@ def _write_default():
     _write_commented(DEFAULTS)
 
 
+_TMPL_RE = re.compile(r"\{([a-zA-Z0-9_]+)(?:\[([a-zA-Z0-9_]+)\])?\}")
+
+
 def _write_commented(flat: dict):
     vals = _unflatten({k: _toml_val(v) for k, v in flat.items()})
-    content = COMMENTED.format(**vals)
+
+    def _sub(match):
+        section = match.group(1)
+        key = match.group(2)
+        node = vals.get(section)
+        if isinstance(node, dict) and key is not None and key in node:
+            return str(node[key])
+        if key is None and not isinstance(node, dict) and node is not None:
+            return str(node)
+        return match.group(0)
+
+    content = _TMPL_RE.sub(_sub, COMMENTED)
     with open(CONFIG_PATH, "w") as f:
         f.write(content)
 

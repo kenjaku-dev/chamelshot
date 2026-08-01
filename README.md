@@ -42,9 +42,15 @@ Combines `grim` + `slurp` under the hood, abstracting the CLI into a native syst
 
 ### System Tray
 - Persistent StatusNotifierItem (stays after capture, no daemon flag needed)
-- Right-click menu: Capture Region / Capture Window / Capture Fullscreen / History / Settings / Quit
-- Left-click: quick capture (uses default mode)
-- Middle-click: open settings
+- **Bar-rendered native menu**: exports the `com.canonical.dbusmenu` interface (`Menu` property), so waybar/Plasma/gnome-shell draw the menu themselves; falls back to an app-drawn `ContextMenu` for hosts without dbusmenu (swaybar, etc.)
+- Menu: Capture Region / Capture Window / Capture Fullscreen / Recent screenshots / Open History Folder / Settings / Kill (recents refresh live via `LayoutUpdated`)
+- Left/right-click: menu; middle-click: settings
+- **Single instance**: running `chamelshot` again forwards your command to the running daemon — keybindings never spawn duplicates
+
+### Single Instance & IPC
+- First launch becomes the daemon (Unix socket at `~/.cache/chamelshot/daemon.sock`)
+- Later invocations forward the command to the daemon and exit
+- Commands: `-c`/`--capture`, `--settings`, `--test-tray`, `--open-history`
 
 ### Screenshot History
 - Automatic save to `~/.cache/chamelshot/history/` on every capture
@@ -91,8 +97,8 @@ uv run python main.py
 Download from [GitHub Releases](https://github.com/kenjaku-dev/chamelshot/releases):
 
 ```sh
-chmod +x chamelshot-v0.3.0-x86_64.AppImage
-./chamelshot-v0.3.0-x86_64.AppImage
+chmod +x chamelshot-v4.1.0-x86_64.AppImage
+./chamelshot-v4.1.0-x86_64.AppImage
 ```
 
 No dependencies required beyond `grim` and `slurp` at runtime.
@@ -103,9 +109,12 @@ No dependencies required beyond `grim` and `slurp` at runtime.
 
 ```sh
 chamelshot                          # show launcher, stays in tray after capture
-chamelshot -c                       # skip launcher, capture directly
+chamelshot -c                       # capture now (forwards to running daemon)
 chamelshot --capture                # same as -c
 chamelshot --settings               # open settings dialog directly
+chamelshot --test-tray              # pop the tray menu (diagnose tray issues)
+chamelshot --open-history           # open the screenshot history folder
+chamelshot --version                # print version
 chamelshot --install-autostart       # add to XDG autostart
 chamelshot --remove-autostart        # remove from XDG autostart
 ```
@@ -174,7 +183,7 @@ new_capture = ""
 | Type | Package |
 |------|---------|
 | Runtime (CLI) | `grim`, `slurp` |
-| Runtime (Python) | `python`, `pyside6`, `dbus-python`, `pygobject` |
+| Runtime (Python) | `python`, `pyside6`, `pygobject`, `dbus-python` |
 | Optional | `wl-clipboard` (Wayland clipboard), `swaymsg` or `hyprctl` (window capture) |
 | Build | `python-build`, `python-installer`, `python-wheel`, `pyinstaller` (AppImage) |
 
@@ -182,7 +191,7 @@ new_capture = ""
 
 ## Migration from SnapCap
 
-v0.3.0 is a rename from the original `snapcap-wayland` project. If you have an existing `~/.config/snapcap/` directory, ChamelShot will auto-create a fresh config at `~/.config/chamelshot/`. The AUR package `chamelshot` conflicts with `snapcap-wayland`.
+v4.0.0 is a rename from the original `snapcap-wayland` project. If you have an existing `~/.config/snapcap/` directory, ChamelShot will auto-create a fresh config at `~/.config/chamelshot/`. The AUR package `chamelshot` conflicts with `snapcap-wayland`.
 
 ---
 

@@ -6,6 +6,9 @@
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
+import subprocess
+
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -15,6 +18,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QSpinBox,
     QTabWidget,
@@ -23,6 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 import config as cfg
+from version import VERSION
 
 
 class SettingsDialog(QDialog):
@@ -43,10 +48,14 @@ class SettingsDialog(QDialog):
         tabs.addTab(self._capture_tab(), "Capture")
         tabs.addTab(self._shortcuts_tab(), "Shortcuts")
         tabs.addTab(self._preview_tab(), "Preview")
+        tabs.addTab(self._about_tab(), "About")
 
         layout.addWidget(tabs)
 
         btn_row = QHBoxLayout()
+        btn_reset = QPushButton("Reset to Defaults")
+        btn_reset.clicked.connect(self._reset_defaults)
+        btn_row.addWidget(btn_reset)
         btn_row.addStretch()
         btn_cancel = QPushButton("Cancel")
         btn_cancel.clicked.connect(self.reject)
@@ -55,6 +64,16 @@ class SettingsDialog(QDialog):
         btn_save.clicked.connect(self._save)
         btn_row.addWidget(btn_save)
         layout.addLayout(btn_row)
+
+    def _reset_defaults(self):
+        if QMessageBox.question(
+            self, "Reset Settings",
+            "Reset all settings to defaults?\n\nChanges take effect immediately.",
+        ) == QMessageBox.StandardButton.Yes:
+            cfg.save(dict(cfg.DEFAULTS))
+            self.config = cfg.load()
+            QMessageBox.information(self, "ChamelShot", "Settings reset to defaults.")
+            self.accept()
 
     def _general_tab(self):
         w = QWidget()
@@ -73,6 +92,45 @@ class SettingsDialog(QDialog):
         self.chk_autostart.setChecked(cfg.autostart_enabled())
         layout.addWidget(self.chk_autostart)
 
+        btn_history = QPushButton("Open History Folder")
+        btn_history.clicked.connect(self._open_history_folder)
+        layout.addWidget(btn_history)
+
+        layout.addStretch()
+        return w
+
+    def _open_history_folder(self):
+        cfg.HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+        try:
+            subprocess.Popen(
+                ["xdg-open", str(cfg.HISTORY_DIR)],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except FileNotFoundError:
+            pass
+
+    def _about_tab(self):
+        w = QWidget()
+        layout = QVBoxLayout(w)
+        title = QLabel("ChamelShot")
+        title.setStyleSheet("font-size: 22px; font-weight: bold;")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title)
+        version = QLabel(f"Version {VERSION}")
+        version.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(version)
+        layout.addSpacing(8)
+        desc = QLabel(
+            "Lightweight screenshot capture tool for Wayland (wlroots).\n\n"
+            "Combines grim + slurp with a Qt system tray daemon,\n"
+            "preview window, and annotation tools.\n\n"
+            "License: GPLv3"
+        )
+        desc.setWordWrap(True)
+        desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(desc)
         layout.addStretch()
         return w
 

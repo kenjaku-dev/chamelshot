@@ -7,108 +7,593 @@
 # (at your option) any later version.
 
 import os
-import threading
 
-import dbus
-import dbus.mainloop.glib
-import dbus.service
-from gi.repository import GLib  # type: ignore[import-untyped]
-from PySide6.QtCore import QTimer
-from PySide6.QtGui import QImage, QPixmap
+import gi
+
+gi.require_version("Gio", "2.0")
+from gi.repository import Gio, GLib  # noqa: E402
+from PySide6.QtCore import Qt  # noqa: E402
+from PySide6.QtGui import QImage, QPixmap  # noqa: E402
 
 SNI_IFACE = "org.kde.StatusNotifierItem"
 WATCHER_NAME = "org.kde.StatusNotifierWatcher"
 WATCHER_PATH = "/StatusNotifierWatcher"
+PROPS_IFACE = "org.freedesktop.DBus.Properties"
+
+DBUSMENU_IFACE = "com.canonical.dbusmenu"
+MENU_PATH = "/MenuBar"
+
+DBUSMENU_XML = f"""<node>
+  <interface name="{DBUSMENU_IFACE}">
+    <method name="GetLayout">
+      <arg type="i" name="parentId" direction="in"/>
+      <arg type="i" name="recursionDepth" direction="in"/>
+      <arg type="as" name="propertyNames" direction="in"/>
+      <arg type="u" name="revision" direction="out"/>
+      <arg type="(ia{{sv}}av)" name="layout" direction="out"/>
+    </method>
+    <method name="GetGroupProperties">
+      <arg type="ai" name="ids" direction="in"/>
+      <arg type="as" name="propertyNames" direction="in"/>
+      <arg type="a(ia{{sv}})" name="properties" direction="out"/>
+    </method>
+    <method name="GetProperty">
+      <arg type="i" name="id" direction="in"/>
+      <arg type="s" name="name" direction="in"/>
+      <arg type="v" name="value" direction="out"/>
+    </method>
+    <method name="Event">
+      <arg type="i" name="id" direction="in"/>
+      <arg type="s" name="eventId" direction="in"/>
+      <arg type="v" name="data" direction="in"/>
+      <arg type="u" name="timestamp" direction="in"/>
+    </method>
+    <method name="EventGroup">
+      <arg type="a(isvu)" name="events" direction="in"/>
+    </method>
+    <method name="AboutToShow">
+      <arg type="i" name="id" direction="in"/>
+      <arg type="b" name="needUpdate" direction="out"/>
+    </method>
+    <method name="AboutToShowGroup">
+      <arg type="ai" name="ids" direction="in"/>
+      <arg type="a(ib)" name="updatesNeeded" direction="out"/>
+    </method>
+    <signal name="LayoutUpdated">
+      <arg type="u" name="revision"/>
+      <arg type="i" name="parent"/>
+    </signal>
+    <signal name="ItemsPropertiesUpdated">
+      <arg type="a(ia{{sv}})" name="updatedProps"/>
+      <arg type="a(ias)" name="removedProps"/>
+    </signal>
+    <property name="Version" type="u" access="read"/>
+    <property name="Status" type="s" access="read"/>
+    <property name="TextDirection" type="s" access="read"/>
+    <property name="IconThemePath" type="as" access="read"/>
+  </interface>
+  <interface name="{PROPS_IFACE}">
+    <method name="GetAll">
+      <arg type="s" name="interface_name" direction="in"/>
+      <arg type="a{{sv}}" name="properties" direction="out"/>
+    </method>
+    <method name="Get">
+      <arg type="s" name="interface_name" direction="in"/>
+      <arg type="s" name="property_name" direction="in"/>
+      <arg type="v" name="value" direction="out"/>
+    </method>
+    <method name="Set">
+      <arg type="s" name="interface_name" direction="in"/>
+      <arg type="s" name="property_name" direction="in"/>
+      <arg type="v" name="value" direction="in"/>
+    </method>
+  </interface>
+</node>"""
+
+SNI_XML = f"""<node>
+  <interface name="{SNI_IFACE}">
+    <method name="Activate">
+      <arg type="i" name="x" direction="in"/>
+      <arg type="i" name="y" direction="in"/>
+    </method>
+    <method name="SecondaryActivate">
+      <arg type="i" name="x" direction="in"/>
+      <arg type="i" name="y" direction="in"/>
+    </method>
+    <method name="ContextMenu">
+      <arg type="i" name="x" direction="in"/>
+      <arg type="i" name="y" direction="in"/>
+    </method>
+    <method name="Scroll">
+      <arg type="i" name="delta" direction="in"/>
+      <arg type="s" name="orientation" direction="in"/>
+    </method>
+    <property name="Category" type="s" access="read"/>
+    <property name="Id" type="s" access="read"/>
+    <property name="Title" type="s" access="read"/>
+    <property name="Status" type="s" access="read"/>
+    <property name="WindowId" type="i" access="read"/>
+    <property name="IconName" type="s" access="read"/>
+    <property name="IconPixmap" type="a(iiay)" access="read"/>
+    <property name="OverlayIconPixmap" type="a(iiay)" access="read"/>
+    <property name="AttentionIconName" type="s" access="read"/>
+    <property name="AttentionIconPixmap" type="a(iiay)" access="read"/>
+    <property name="AttentionMovieName" type="s" access="read"/>
+    <property name="ToolTip" type="(sa(iiay)ss)" access="read"/>
+    <property name="ItemIsMenu" type="b" access="read"/>
+    <property name="Menu" type="o" access="read"/>
+    <property name="IconThemePath" type="as" access="read"/>
+    <signal name="NewTitle"/>
+    <signal name="NewIcon"/>
+    <signal name="NewAttentionIcon"/>
+    <signal name="NewOverlayIcon"/>
+    <signal name="NewToolTip"/>
+    <signal name="NewStatus"/>
+  </interface>
+  <interface name="{PROPS_IFACE}">
+    <method name="GetAll">
+      <arg type="s" name="interface_name" direction="in"/>
+      <arg type="a{{sv}}" name="properties" direction="out"/>
+    </method>
+    <method name="Get">
+      <arg type="s" name="interface_name" direction="in"/>
+      <arg type="s" name="property_name" direction="in"/>
+      <arg type="v" name="value" direction="out"/>
+    </method>
+    <method name="Set">
+      <arg type="s" name="interface_name" direction="in"/>
+      <arg type="s" name="property_name" direction="in"/>
+      <arg type="v" name="value" direction="in"/>
+    </method>
+  </interface>
+</node>"""
 
 
 def _icon_data(pixmap):
-    img = pixmap.toImage().convertToFormat(QImage.Format.Format_RGBA8888)
+    """Return the IconPixmap value ``a(iiay)`` for a QPixmap."""
+    img = pixmap.toImage().convertToFormat(QImage.Format.Format_ARGB32_Premultiplied)
     w, h = img.width(), img.height()
+    if w > 64 or h > 64:
+        img = img.scaled(
+            64, 64,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        w, h = img.width(), img.height()
     raw = bytes(img.constBits())
-    return [w, h, list(raw)]
+    return GLib.Variant("a(iiay)", [(w, h, raw)])
 
 
-class _SNIObject(dbus.service.Object):
-    def __init__(self, bus_name, path, callbacks):
+def _props_variants(props: dict) -> dict:
+    """Convert ``{name: (type, value)}`` to ``{name: GLib.Variant}``.
+
+    ``value`` may already be a GLib.Variant (container types). The result is
+    meant to be embedded directly in struct/array/tuple constructions —
+    prebuilt ``a{{sv}}`` variants get unboxed by gi when iterated.
+    """
+    out = {}
+    for name, spec in props.items():
+        if isinstance(spec, GLib.Variant):
+            out[name] = spec
+            continue
+        vtype, value = spec
+        if isinstance(value, GLib.Variant):
+            out[name] = value
+        elif vtype == "b":
+            out[name] = GLib.Variant("b", bool(value))
+        else:
+            out[name] = GLib.Variant(vtype, value)
+    return out
+
+
+def _props_a_sv(props: dict) -> GLib.Variant:
+    """Standalone ``a{{sv}}`` variant for a props dict."""
+    return GLib.Variant("a{sv}", _props_variants(props))
+
+
+class DbusMenu:
+    """com.canonical.dbusmenu export (spec-exact) so the SNI host (waybar,
+    Plasma, gnome-shell, ...) renders our context menu natively.
+
+    The host renders a GTK menu attached to its own surface and sends
+    Event(id, "clicked", ...) on selection — no xdg_popup from our process,
+    so it works on Wayland compositors (niri, sway, ...) that reject popups
+    whose transient parent never received input.
+
+    Implemented with Gio/GVariant because dbus-python cannot marshal the
+    required reply types: GetLayout must return ``(u(ia{sv}av))`` with
+    children as variant-wrapped structs, which dbus-python 1.4 fails on
+    ("Expected a string or unicode object" — nested structs and
+    variant-wrapped containers in replies are broken). GVariant builds
+    them natively and byte-exactly.
+
+    IMPORTANT: DBus dispatch is driven by the GLib default main context,
+    which the Qt event loop services (QEventDispatcherGlib) — so this
+    object must be created on the main thread and served inside app.exec().
+    A GLib main loop in a worker thread never dispatches Gio/dbus sources
+    once a QCoreApplication exists (verified empirically).
+
+    Item entries produced by ``builder`` are dicts:
+      {"label": str, "callback": callable | None, "type": "standard"|"separator"}
+    A missing/None callback yields a disabled item (e.g. "No screenshots").
+    """
+
+    def __init__(self, connection: Gio.DBusConnection, path: str, builder):
+        self._connection = connection
+        self._path = path
+        self._builder = builder
+        self._items: list[dict] = []
+        self._by_id: dict[int, dict] = {}
+        self._revision = 1
+        self._fingerprint = self._fingerprint_of(builder())
+        node = Gio.DBusNodeInfo.new_for_xml(DBUSMENU_XML)
+        connection.register_object(
+            path, node.interfaces[0], self._on_method_call, None, None
+        )
+        self._refresh()
+
+    # ------------------------------------------------------------ internals
+
+    def _refresh(self):
+        """Rebuild item list from the builder callback, assign ids, bump revision."""
+        items = self._builder()
+        self._items = [
+            {"type": "separator"} if i.get("type") == "separator" else i
+            for i in items
+        ]
+        self._by_id = {idx: it for idx, it in enumerate(self._items, start=1)}
+        self._revision += 1
+
+    def _layout_props(self, item_id: int) -> dict:
+        """Props dict {name: (type, value)} for one menu item (0 = root)."""
+        if item_id == 0:
+            return {
+                "type": ("s", "root"),
+                "children-display": ("s", "submenu"),
+            }
+        item = self._by_id.get(item_id)
+        if item is None:
+            return {}
+        if item.get("type") == "separator":
+            return {"type": ("s", "separator"), "visible": ("b", True)}
+        return {
+            "label": ("s", item.get("label", "")),
+            "enabled": ("b", item.get("callback") is not None),
+            "visible": ("b", True),
+            "type": ("s", "standard"),
+            "label-display": ("s", "text"),
+        }
+
+    def _child_variant(self, item_id: int) -> GLib.Variant:
+        """One GetLayout child: a variant holding a ``(ia{sv}av)`` struct."""
+        return GLib.Variant(
+            "(ia{sv}av)",
+            (item_id, _props_variants(self._layout_props(item_id)), []),
+        )
+
+    # ------------------------------------------------------------- dispatch
+
+    def _on_method_call(self, connection, sender, object_path, interface_name,
+                        method_name, parameters, invocation):
+        try:
+            if interface_name == PROPS_IFACE:
+                self._on_properties(method_name, parameters, invocation)
+                return
+            handler = getattr(self, f"_m_{method_name}", None)
+            if handler is None:
+                invocation.return_dbus_error(
+                    "org.freedesktop.DBus.Error.UnknownMethod",
+                    f"Unknown method {interface_name}.{method_name}",
+                )
+                return
+            handler(parameters, invocation)
+        except Exception as e:  # pragma: no cover - defensive
+            invocation.return_dbus_error(
+                "org.freedesktop.DBus.Error.Failed", str(e)
+            )
+
+    def _on_properties(self, method_name, parameters, invocation):
+        if method_name == "GetAll":
+            iface = parameters.unpack()[0]
+            if str(iface) == DBUSMENU_IFACE:
+                props = {
+                    "Version": ("u", 3),
+                    "Status": ("s", "normal"),
+                    "TextDirection": ("s", "ltr"),
+                    "IconThemePath": ("as", []),
+                }
+            else:
+                props = {}
+            invocation.return_value(
+                GLib.Variant("(a{sv})", (_props_variants(props),))
+            )
+        elif method_name == "Get":
+            _iface, name = parameters.unpack()
+            props = {
+                "Version": ("u", 3),
+                "Status": ("s", "normal"),
+                "TextDirection": ("s", "ltr"),
+                "IconThemePath": ("as", []),
+            }
+            value = _props_a_sv(props).lookup_value(str(name), None)
+            if value is None:
+                value = GLib.Variant("s", "")
+            invocation.return_value(GLib.Variant("(v)", (value,)))
+        elif method_name == "Set":
+            invocation.return_dbus_error(
+                "org.freedesktop.DBus.Error.PropertyReadOnly", "Read-only"
+            )
+
+    # ------------------------------------------------------------- DBusMenu
+
+    def _m_GetLayout(self, parameters, invocation):  # noqa: N802
+        parent_id, recursion_depth, _names = parameters.unpack()
+        parent_id, recursion_depth = int(parent_id), int(recursion_depth)
+        if parent_id == 0 and recursion_depth != 0:
+            children = [self._child_variant(i) for i in self._by_id]
+        else:
+            children = []
+        layout = (
+            parent_id,
+            _props_variants(self._layout_props(parent_id)),
+            children,
+        )
+        invocation.return_value(
+            GLib.Variant("(u(ia{sv}av))", (self._revision, layout))
+        )
+
+    def _m_GetGroupProperties(self, parameters, invocation):  # noqa: N802
+        ids, _names = parameters.unpack()
+        out = []
+        for item_id in ids:
+            props = self._layout_props(int(item_id))
+            if props:
+                out.append((int(item_id), _props_variants(props)))
+        invocation.return_value(GLib.Variant("(a(ia{sv}))", (out,)))
+
+    def _m_GetProperty(self, parameters, invocation):  # noqa: N802
+        item_id, name = parameters.unpack()
+        props = self._layout_props(int(item_id))
+        value = _props_a_sv(props).lookup_value(str(name), None)
+        if value is None:
+            value = GLib.Variant("s", "")
+        invocation.return_value(GLib.Variant("(v)", (value,)))
+
+    def _m_Event(self, parameters, invocation):  # noqa: N802
+        item_id, event_id, _data, _timestamp = parameters.unpack()
+        self._handle_event(int(item_id), str(event_id))
+        invocation.return_value(None)
+
+    def _m_EventGroup(self, parameters, invocation):  # noqa: N802
+        events = parameters.unpack()[0]
+        for item_id, event_id, _data, _timestamp in events:
+            self._handle_event(int(item_id), str(event_id))
+        invocation.return_value(None)
+
+    def _m_AboutToShow(self, parameters, invocation):  # noqa: N802
+        item_id = int(parameters.unpack()[0])
+        need = self._check_refresh(item_id)
+        invocation.return_value(GLib.Variant("(b)", (need,)))
+
+    def _m_AboutToShowGroup(self, parameters, invocation):  # noqa: N802
+        ids = parameters.unpack()[0]
+        out = [(int(i), self._check_refresh(int(i))) for i in ids]
+        invocation.return_value(GLib.Variant("(a(ib))", (out,)))
+
+    def _check_refresh(self, item_id: int) -> bool:
+        """Rebuild + emit LayoutUpdated when the menu changed; True if so."""
+        if item_id != 0:
+            return False
+        fp = self._fingerprint_of(self._builder())
+        if fp != self._fingerprint:
+            self._fingerprint = fp
+            self._refresh()
+            self.emit_layout_updated()
+            return True
+        return False
+
+    # ------------------------------------------------------------- signals
+
+    def emit_layout_updated(self):
+        self._connection.emit_signal(
+            None, self._path, DBUSMENU_IFACE, "LayoutUpdated",
+            GLib.Variant("(ui)", (self._revision, 0)),
+        )
+
+    # -------------------------------------------------------------- helpers
+
+    @staticmethod
+    def _fingerprint_of(items: list) -> tuple:
+        return tuple(
+            (i.get("type", "standard"), i.get("label", ""), i.get("callback") is not None)
+            for i in items
+        )
+
+    def _handle_event(self, item_id: int, event_id: str):
+        if event_id != "clicked":
+            return
+        item = self._by_id.get(item_id)
+        if not item:
+            return
+        callback = item.get("callback")
+        if callback:
+            callback()
+
+
+class _SNIObject:
+    def __init__(self, connection, path, callbacks):
         self._callbacks = callbacks
         self._icon_pm = None
-        super().__init__(bus_name, path)
+        node = Gio.DBusNodeInfo.new_for_xml(SNI_XML)
+        connection.register_object(
+            path, node.interfaces[0], self._on_method_call, None, None
+        )
 
     def set_icon(self, pixmap):
         self._icon_pm = pixmap
 
-    @dbus.service.method(SNI_IFACE, in_signature="ii", out_signature="")
-    def Activate(self, x, y):  # noqa: N802
-        cb = self._callbacks.get("activate")
-        if cb:
-            QTimer.singleShot(0, cb)
+    def _on_method_call(self, connection, sender, object_path, interface_name,
+                        method_name, parameters, invocation):
+        try:
+            if interface_name == PROPS_IFACE:
+                self._on_properties(method_name, parameters, invocation)
+                return
+            if method_name == "Activate":
+                x, y = parameters.unpack()
+                self._dispatch("activate", x, y)
+            elif method_name == "SecondaryActivate":
+                x, y = parameters.unpack()
+                self._dispatch("settings", x, y)
+            elif method_name == "ContextMenu":
+                x, y = parameters.unpack()
+                self._dispatch("menu", x, y)
+            else:
+                invocation.return_dbus_error(
+                    "org.freedesktop.DBus.Error.UnknownMethod",
+                    f"Unknown method {interface_name}.{method_name}",
+                )
+                return
+            invocation.return_value(None)
+        except Exception as e:  # pragma: no cover - defensive
+            invocation.return_dbus_error(
+                "org.freedesktop.DBus.Error.Failed", str(e)
+            )
 
-    @dbus.service.method(SNI_IFACE, in_signature="ii", out_signature="")
-    def SecondaryActivate(self, x, y):  # noqa: N802
-        cb = self._callbacks.get("settings")
+    def _dispatch(self, key, *args):
+        cb = self._callbacks.get(key)
         if cb:
-            QTimer.singleShot(0, cb)
+            cb(*args)
 
-    @dbus.service.method(SNI_IFACE, in_signature="ii", out_signature="")
-    def ContextMenu(self, x, y):  # noqa: N802
-        cb = self._callbacks.get("menu")
-        if cb:
-            QTimer.singleShot(0, lambda: cb(x, y))
+    def _on_properties(self, method_name, parameters, invocation):
+        if method_name == "GetAll":
+            iface = parameters.unpack()[0]
+            props = self._props() if str(iface) == SNI_IFACE else {}
+            invocation.return_value(
+                GLib.Variant("(a{sv})", (_props_variants(props),))
+            )
+        elif method_name == "Get":
+            _iface, name = parameters.unpack()
+            value = _props_a_sv(self._props()).lookup_value(str(name), None)
+            if value is None:
+                value = GLib.Variant("s", "")
+            invocation.return_value(GLib.Variant("(v)", (value,)))
+        elif method_name == "Set":
+            invocation.return_dbus_error(
+                "org.freedesktop.DBus.Error.PropertyReadOnly", "Read-only"
+            )
 
-    @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature="s", out_signature="a{sv}")
-    def GetAll(self, interface):  # noqa: N802
-        icon = _icon_data(self._icon_pm) if self._icon_pm else [0, 0, []]
+    def _props(self):
+        icon = _icon_data(self._icon_pm) if self._icon_pm else GLib.Variant("a(iiay)", [])
         return {
-            "Category": "Utility",
-            "Id": "chamelshot",
-            "Title": "ChamelShot",
-            "Status": "Active",
-            "IconThemePath": dbus.Array([], signature="s"),
-            "IconPixmap": icon,
-            "ItemIsMenu": False,
-            "IconName": "",
+            "Category": ("s", "Utility"),
+            "Id": ("s", "chamelshot"),
+            "Title": ("s", "ChamelShot"),
+            "Status": ("s", "Active"),
+            "WindowId": ("i", 0),
+            "IconName": ("s", ""),
+            "IconPixmap": ("a(iiay)", icon),
+            "OverlayIconPixmap": ("a(iiay)", GLib.Variant("a(iiay)", [])),
+            "AttentionIconName": ("s", ""),
+            "AttentionIconPixmap": ("a(iiay)", GLib.Variant("a(iiay)", [])),
+            "AttentionMovieName": ("s", ""),
+            "ToolTip": ("(sa(iiay)ss)", ("", [], "", "")),
+            "ItemIsMenu": ("b", True),
+            "Menu": ("o", GLib.Variant("o", MENU_PATH)),
+            "IconThemePath": ("as", []),
         }
 
 
 class ChamelShotTray:
-    def __init__(self, icon_pixmap: QPixmap, on_activate=None, on_settings=None, on_menu=None):
-        self._icon = icon_pixmap
-        self._callbacks = {
-            "activate": on_activate,
-            "settings": on_settings,
-            "menu": on_menu,
-        }
-        self._thread = threading.Thread(target=self._run, daemon=True)
-        self._thread.start()
+    """Registers the StatusNotifierItem + DBusMenu on the main thread.
 
-    def _run(self):
-        dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
-        self._loop = GLib.MainLoop()
+    Gio uses the GLib default main context, which the Qt event loop drives
+    (QEventDispatcherGlib) — so there is no background thread: the host's
+    calls (Activate, ContextMenu, GetLayout, Event, ...) arrive inside
+    app.exec() and callbacks run on the main thread directly.
+    """
 
+    def __init__(self, icon_pixmap: QPixmap, menu_builder=None, on_activate=None, on_settings=None, on_menu=None):
+        self._bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
         pid = os.getpid()
-        bus_name = dbus.service.BusName(
-            f"org.kde.StatusNotifierItem-{pid}-1",
-            bus=dbus.SessionBus(),
+        self._bus_name = f"org.kde.StatusNotifierItem-{pid}-1"
+        self._registered = False
+        self._retry_id = None
+        self._retry_left = 0
+
+        self._name_owner = Gio.bus_own_name(
+            Gio.BusType.SESSION, self._bus_name, Gio.BusNameOwnerFlags.NONE,
+            None, self._on_name_acquired, self._on_name_lost,
         )
-        self._obj = _SNIObject(bus_name, "/StatusNotifierItem", self._callbacks)
-        self._obj.set_icon(self._icon)
+        self._obj = _SNIObject(
+            self._bus,
+            "/StatusNotifierItem",
+            {"activate": on_activate, "settings": on_settings, "menu": on_menu},
+        )
+        self._obj.set_icon(icon_pixmap)
 
+        self._menu = None
+        if menu_builder is not None:
+            self._menu = DbusMenu(self._bus, MENU_PATH, menu_builder)
+
+        # SNI hosts (waybar, Plasma, ...) only learn about items through the
+        # StatusNotifierWatcher: they dump its registered-items list when they
+        # (re)start and listen for StatusNotifierItemRegistered signals. A
+        # single registration attempt at startup is therefore not enough — if
+        # the watcher restarts (waybar restart, crash, ...) the item vanishes
+        # from the bar for good. Watch the watcher name and (re)register
+        # whenever it appears, like Qt/KDE SNI implementations do.
+        self._watcher_watch = Gio.bus_watch_name(
+            Gio.BusType.SESSION, WATCHER_NAME, Gio.BusNameWatcherFlags.NONE,
+            self._on_watcher_appeared, self._on_watcher_vanished,
+        )
+
+    # ---------------------------------------------------------- registration
+
+    def _on_name_acquired(self, connection, name):
+        self._register_with_watcher()
+
+    def _on_name_lost(self, connection, name):
+        self._registered = False
+
+    def _on_watcher_appeared(self, connection, name, owner):
+        self._register_with_watcher()
+
+    def _on_watcher_vanished(self, connection, name):
+        self._registered = False
+        if self._retry_id is not None:
+            GLib.source_remove(self._retry_id)
+            self._retry_id = None
+            self._retry_left = 0
+
+    def _register_with_watcher(self):
+        if self._registered:
+            return
         try:
-            watcher = dbus.SessionBus().get_object(WATCHER_NAME, WATCHER_PATH)
-            watcher.RegisterStatusNotifierItem(
-                f"org.kde.StatusNotifierItem-{pid}-1",
-                dbus_interface=WATCHER_NAME,
+            watcher = Gio.DBusProxy.new_sync(
+                self._bus, Gio.DBusProxyFlags.NONE, None,
+                WATCHER_NAME, WATCHER_PATH, WATCHER_NAME, None,
             )
-        except Exception:
-            pass
+            watcher.call_sync(
+                "RegisterStatusNotifierItem",
+                GLib.Variant("(s)", (self._bus_name,)),
+                Gio.DBusCallFlags.NONE, -1, None,
+            )
+            self._registered = True
+        except GLib.Error:
+            # The watcher can own its name before its object is exported
+            # (waybar does exactly this). Retry briefly instead of giving up.
+            if self._retry_id is None and self._retry_left < 20:
+                self._retry_left += 1
+                self._retry_id = GLib.timeout_add(300, self._retry_register)
 
-        self._loop.run()
-
-    def stop(self):
-        if hasattr(self, "_loop"):
-            self._loop.quit()
+    def _retry_register(self):
+        self._retry_id = None
+        self._register_with_watcher()
+        return False
 
     def update_icon(self, pixmap: QPixmap):
-        self._icon = pixmap
-        if hasattr(self, "_obj"):
-            self._obj.set_icon(pixmap)
+        self._obj.set_icon(pixmap)
+        if self._bus:
+            self._bus.emit_signal(
+                None, None, "/StatusNotifierItem", SNI_IFACE, "NewIcon", None
+            )

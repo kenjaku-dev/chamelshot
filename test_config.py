@@ -3,6 +3,27 @@ import os
 import config as cfg
 
 
+def test_save_with_braces_in_values(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(cfg, "CONFIG_PATH", tmp_path / "config.toml")
+    cfg.save({"save.directory": "{custom}/path", "save.filename_format": "shot_%Y.png"})
+    loaded = cfg.load()
+    assert loaded["save.directory"] == "{custom}/path"
+    assert loaded["save.filename_format"] == "shot_%Y.png"
+    written = (tmp_path / "config.toml").read_text()
+    assert "{{custom}}" not in written
+    assert "custom" in written
+
+
+def test_save_writes_comment_template(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(cfg, "CONFIG_PATH", tmp_path / "config.toml")
+    cfg.save({"capture.mode": "fullscreen"})
+    written = (tmp_path / "config.toml").read_text()
+    assert "mode = \"fullscreen\"" in written
+    assert "{" not in written
+
+
 def test_flatten_unflatten_roundtrip():
     nested = {
         "general": {"auto_copy": True, "auto_save": False},

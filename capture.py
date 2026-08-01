@@ -7,9 +7,12 @@
 # (at your option) any later version.
 
 import subprocess
+import threading
 import time
 
 from PySide6.QtGui import QPixmap
+
+from dispatcher import post
 
 GRIM_NOT_FOUND = "grim is not installed. Install it: sudo pacman -S grim"
 
@@ -52,3 +55,17 @@ def capture_fullscreen(delay: int = 0, include_cursor: bool = False) -> QPixmap:
     args = ["--cursor"] if include_cursor else []
     args.append("-")
     return _run_grim(args, delay)
+
+
+def capture_async(receiver, capture_fn, on_success, on_error):
+    """Run capture_fn (which blocks on grim) in a background thread and post the
+    result to the Qt main thread via the dispatcher."""
+
+    def _work():
+        try:
+            pm = capture_fn()
+            post(receiver, on_success, pm)
+        except Exception as e:  # noqa: BLE001 - forwarded to UI thread
+            post(receiver, on_error, e)
+
+    threading.Thread(target=_work, daemon=True).start()

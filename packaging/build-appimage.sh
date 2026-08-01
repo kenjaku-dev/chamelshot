@@ -13,14 +13,18 @@ uv run pyinstaller --onedir --name chamelshot \
   --hidden-import preview \
   --hidden-import settings \
   --hidden-import tray \
-  --hidden-import PySide6.QtWidgets \
-  --hidden-import PySide6.QtGui \
   --hidden-import PySide6.QtCore \
+  --hidden-import PySide6.QtGui \
+  --hidden-import PySide6.QtWidgets \
+  --hidden-import shiboken6 \
   --hidden-import gi \
   --hidden-import dbus \
   --hidden-import dbus.mainloop.glib \
   --hidden-import dbus.service \
   --add-data "icon.png:." \
+  --collect-all PySide6.QtCore \
+  --collect-all PySide6.QtGui \
+  --collect-all PySide6.QtWidgets \
   --collect-all gi \
   --collect-all dbus \
   -y main.py

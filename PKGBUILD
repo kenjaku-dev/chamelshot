@@ -1,7 +1,7 @@
 # Maintainer: kenjaku-dev <kenjaku.dev@gmail.com>
 
 pkgname=chamelshot
-pkgver=0.3.0
+pkgver=4.1.0
 pkgrel=1
 pkgdesc="A lightweight screenshot capture tool for Wayland (wlroots)"
 arch=('x86_64')

@@ -26,7 +26,7 @@ packaging/build-appimage.sh 4.1.0       # builds AppImage into dist/
 | `capture.py` | grim subprocess calls + QPixmap decoding + async threading |
 | `editor.py` | pixel editor / annotations, save + copy-to-clipboard |
 | `overlay.py`, `preview.py` | fullscreen selection overlay, preview window |
-| `settings.py` | QSettings-backed options UI |
+| `settings.py` | settings dialog UI (reads/writes `config.py` TOML store) |
 | `config.py` | validated defaults (dataclass + loader) |
 | `ipc.py` | single-instance unix-socket server (first instance) + `--command` client |
 | `dispatcher.py` | `post()` — post callables from worker threads to the Qt main thread |

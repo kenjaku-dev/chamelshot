@@ -55,7 +55,7 @@
 **Root cause 2:** `QMenu.popup(QPoint(x, y))` with x=0,y=0 (Wayland gives no global coordinates) caused invisible menu positioning.
 **Fix:** Replaced `QTimer.singleShot` with `QCoreApplication.postEvent()` + a custom `_EventReceiver` — Qt's thread-safe cross-thread event posting. Also added `QCursor.pos()` fallback for menu positioning on Wayland.
 
-### 5. Tray icon displayed incorrectly ("diplicted")
+### 5. Tray icon displayed incorrectly ("duplicated")
 **File:** `tray.py:25`
 **Root cause:** `_icon_data()` used `QImage.Format.Format_RGBA8888` but the StatusNotifierItem protocol spec requires `QImage.Format.Format_ARGB32_Premultiplied` (0xAARRGGBB). Wrong byte order caused visual corruption.
 **Fix:** Changed to `Format_ARGB32_Premultiplied`. Also cap icon size to 64x64 for consistent rendering across tray implementations.

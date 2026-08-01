@@ -11,7 +11,7 @@ import os
 import gi
 
 gi.require_version("Gio", "2.0")
-from gi.repository import Gio, GLib  # noqa: E402
+from gi.repository import Gio, GLib  # noqa: E402  # pyright: ignore[reportAttributeAccessIssue]
 from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtGui import QImage, QPixmap  # noqa: E402
 

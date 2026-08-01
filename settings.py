@@ -155,7 +155,7 @@ class SettingsDialog(QDialog):
         layout.addRow("", QLabel("Variables: %Y %m %d %H %M %S"))
 
         self.img_format = QComboBox()
-        self.img_format.addItems(["PNG", "JPEG", "BMP", "WEBP"])
+        self.img_format.addItems(["PNG", "JPEG", "WebP", "BMP"])
         self.img_format.setCurrentText(self.config["save.format"])
         layout.addRow("Image format:", self.img_format)
 

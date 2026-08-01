@@ -37,7 +37,7 @@ notification = {general[notification]}
 directory = "{save[directory]}"
 # Filename pattern (uses strftime: %%Y %%m %%d %%H %%M %%S)
 filename_format = "{save[filename_format]}"
-# Image format: PNG, JPEG, BMP, WEBP
+# Image format: PNG, JPEG, WebP, BMP
 format = "{save[format]}"
 # JPEG/WebP quality 0-100 (-1 = default)
 quality = {save[quality]}

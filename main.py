@@ -154,17 +154,19 @@ class ChamelShotApp:
             entries = sorted(hist.glob("screenshot_*.png"), reverse=True)[: min(cfg.MAX_HISTORY, 5)]
             for entry in entries:
                 label = self._format_history_time(entry)
-                items.append({"label": f"  \u23F1  {label}", "callback": lambda p=entry: self._open_history_file(p)})
+                items.append({"label": f"  \u23f1  {label}", "callback": lambda p=entry: self._open_history_file(p)})
                 shown += 1
         if not shown:
             items.append({"label": "  \u2014  No screenshots", "callback": None})
 
-        items.extend([
-            {"label": "  \U0001F5C2  Open History Folder", "callback": self._open_history_folder},
-            {"type": "separator"},
-            {"label": "  \u2699  Settings", "callback": self._open_settings},
-            {"label": "  \u2715  Kill", "callback": self.app.quit},
-        ])
+        items.extend(
+            [
+                {"label": "  \U0001f5c2  Open History Folder", "callback": self._open_history_folder},
+                {"type": "separator"},
+                {"label": "  \u2699  Settings", "callback": self._open_settings},
+                {"label": "  \u2715  Kill", "callback": self.app.quit},
+            ]
+        )
         return items
 
     def _open_history_file(self, path: Path):
@@ -193,9 +195,7 @@ class ChamelShotApp:
         menu.setObjectName("trayMenu")
         if QGuiApplication.platformName() == "wayland":
             menu.setWindowFlags(
-                Qt.WindowType.Window
-                | Qt.WindowType.FramelessWindowHint
-                | Qt.WindowType.WindowStaysOnTopHint
+                Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
             )
             menu.triggered.connect(menu.close)
         self._menu = menu
@@ -249,13 +249,14 @@ class ChamelShotApp:
     # ---------------------------------------------------------------- Launcher
 
     def _show_launcher(self):
-        if self._launcher is None:
-            self._launcher = QWidget()
-            self._launcher.setWindowTitle(f"ChamelShot {VERSION}")
-            self._launcher.setFixedSize(280, 260)
-            self._launcher.setStyleSheet(_LAUNCHER_STYLE)
+        launcher = self._launcher
+        if launcher is None:
+            launcher = QWidget()
+            launcher.setWindowTitle(f"ChamelShot {VERSION}")
+            launcher.setFixedSize(280, 260)
+            launcher.setStyleSheet(_LAUNCHER_STYLE)
 
-            layout = QVBoxLayout(self._launcher)
+            layout = QVBoxLayout(launcher)
             layout.setContentsMargins(20, 20, 20, 20)
             layout.setSpacing(8)
 
@@ -286,10 +287,11 @@ class ChamelShotApp:
             btn_settings.setObjectName("settings")
             btn_settings.clicked.connect(self._open_settings)
             layout.addWidget(btn_settings)
+            self._launcher = launcher
 
-        self._launcher.show()
-        self._launcher.raise_()
-        self._launcher.activateWindow()
+        launcher.show()
+        launcher.raise_()
+        launcher.activateWindow()
 
     # ---------------------------------------------------------------- Capture
 

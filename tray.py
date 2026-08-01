@@ -155,7 +155,8 @@ def _icon_data(pixmap):
     w, h = img.width(), img.height()
     if w > 64 or h > 64:
         img = img.scaled(
-            64, 64,
+            64,
+            64,
             Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation,
         )
@@ -227,9 +228,7 @@ class DbusMenu:
         self._revision = 1
         self._fingerprint = self._fingerprint_of(builder())
         node = Gio.DBusNodeInfo.new_for_xml(DBUSMENU_XML)
-        connection.register_object(
-            path, node.interfaces[0], self._on_method_call, None, None
-        )
+        connection.register_object(path, node.interfaces[0], self._on_method_call, None, None)
         self._refresh()
 
     # ------------------------------------------------------------ internals
@@ -237,10 +236,7 @@ class DbusMenu:
     def _refresh(self):
         """Rebuild item list from the builder callback, assign ids, bump revision."""
         items = self._builder()
-        self._items = [
-            {"type": "separator"} if i.get("type") == "separator" else i
-            for i in items
-        ]
+        self._items = [{"type": "separator"} if i.get("type") == "separator" else i for i in items]
         self._by_id = {idx: it for idx, it in enumerate(self._items, start=1)}
         self._revision += 1
 
@@ -273,8 +269,7 @@ class DbusMenu:
 
     # ------------------------------------------------------------- dispatch
 
-    def _on_method_call(self, connection, sender, object_path, interface_name,
-                        method_name, parameters, invocation):
+    def _on_method_call(self, connection, sender, object_path, interface_name, method_name, parameters, invocation):
         try:
             if interface_name == PROPS_IFACE:
                 self._on_properties(method_name, parameters, invocation)
@@ -288,9 +283,7 @@ class DbusMenu:
                 return
             handler(parameters, invocation)
         except Exception as e:  # pragma: no cover - defensive
-            invocation.return_dbus_error(
-                "org.freedesktop.DBus.Error.Failed", str(e)
-            )
+            invocation.return_dbus_error("org.freedesktop.DBus.Error.Failed", str(e))
 
     def _on_properties(self, method_name, parameters, invocation):
         if method_name == "GetAll":
@@ -304,9 +297,7 @@ class DbusMenu:
                 }
             else:
                 props = {}
-            invocation.return_value(
-                GLib.Variant("(a{sv})", (_props_variants(props),))
-            )
+            invocation.return_value(GLib.Variant("(a{sv})", (_props_variants(props),)))
         elif method_name == "Get":
             _iface, name = parameters.unpack()
             props = {
@@ -320,9 +311,7 @@ class DbusMenu:
                 value = GLib.Variant("s", "")
             invocation.return_value(GLib.Variant("(v)", (value,)))
         elif method_name == "Set":
-            invocation.return_dbus_error(
-                "org.freedesktop.DBus.Error.PropertyReadOnly", "Read-only"
-            )
+            invocation.return_dbus_error("org.freedesktop.DBus.Error.PropertyReadOnly", "Read-only")
 
     # ------------------------------------------------------------- DBusMenu
 
@@ -338,9 +327,7 @@ class DbusMenu:
             _props_variants(self._layout_props(parent_id)),
             children,
         )
-        invocation.return_value(
-            GLib.Variant("(u(ia{sv}av))", (self._revision, layout))
-        )
+        invocation.return_value(GLib.Variant("(u(ia{sv}av))", (self._revision, layout)))
 
     def _m_GetGroupProperties(self, parameters, invocation):  # noqa: N802
         ids, _names = parameters.unpack()
@@ -396,7 +383,10 @@ class DbusMenu:
 
     def emit_layout_updated(self):
         self._connection.emit_signal(
-            None, self._path, DBUSMENU_IFACE, "LayoutUpdated",
+            None,
+            self._path,
+            DBUSMENU_IFACE,
+            "LayoutUpdated",
             GLib.Variant("(ui)", (self._revision, 0)),
         )
 
@@ -404,10 +394,7 @@ class DbusMenu:
 
     @staticmethod
     def _fingerprint_of(items: list) -> tuple:
-        return tuple(
-            (i.get("type", "standard"), i.get("label", ""), i.get("callback") is not None)
-            for i in items
-        )
+        return tuple((i.get("type", "standard"), i.get("label", ""), i.get("callback") is not None) for i in items)
 
     def _handle_event(self, item_id: int, event_id: str):
         if event_id != "clicked":
@@ -425,15 +412,12 @@ class _SNIObject:
         self._callbacks = callbacks
         self._icon_pm = None
         node = Gio.DBusNodeInfo.new_for_xml(SNI_XML)
-        connection.register_object(
-            path, node.interfaces[0], self._on_method_call, None, None
-        )
+        connection.register_object(path, node.interfaces[0], self._on_method_call, None, None)
 
     def set_icon(self, pixmap):
         self._icon_pm = pixmap
 
-    def _on_method_call(self, connection, sender, object_path, interface_name,
-                        method_name, parameters, invocation):
+    def _on_method_call(self, connection, sender, object_path, interface_name, method_name, parameters, invocation):
         try:
             if interface_name == PROPS_IFACE:
                 self._on_properties(method_name, parameters, invocation)
@@ -455,9 +439,7 @@ class _SNIObject:
                 return
             invocation.return_value(None)
         except Exception as e:  # pragma: no cover - defensive
-            invocation.return_dbus_error(
-                "org.freedesktop.DBus.Error.Failed", str(e)
-            )
+            invocation.return_dbus_error("org.freedesktop.DBus.Error.Failed", str(e))
 
     def _dispatch(self, key, *args):
         cb = self._callbacks.get(key)
@@ -468,9 +450,7 @@ class _SNIObject:
         if method_name == "GetAll":
             iface = parameters.unpack()[0]
             props = self._props() if str(iface) == SNI_IFACE else {}
-            invocation.return_value(
-                GLib.Variant("(a{sv})", (_props_variants(props),))
-            )
+            invocation.return_value(GLib.Variant("(a{sv})", (_props_variants(props),)))
         elif method_name == "Get":
             _iface, name = parameters.unpack()
             value = _props_a_sv(self._props()).lookup_value(str(name), None)
@@ -478,9 +458,7 @@ class _SNIObject:
                 value = GLib.Variant("s", "")
             invocation.return_value(GLib.Variant("(v)", (value,)))
         elif method_name == "Set":
-            invocation.return_dbus_error(
-                "org.freedesktop.DBus.Error.PropertyReadOnly", "Read-only"
-            )
+            invocation.return_dbus_error("org.freedesktop.DBus.Error.PropertyReadOnly", "Read-only")
 
     def _props(self):
         icon = _icon_data(self._icon_pm) if self._icon_pm else GLib.Variant("a(iiay)", [])
@@ -521,8 +499,12 @@ class ChamelShotTray:
         self._retry_left = 0
 
         self._name_owner = Gio.bus_own_name(
-            Gio.BusType.SESSION, self._bus_name, Gio.BusNameOwnerFlags.NONE,
-            None, self._on_name_acquired, self._on_name_lost,
+            Gio.BusType.SESSION,
+            self._bus_name,
+            Gio.BusNameOwnerFlags.NONE,
+            None,
+            self._on_name_acquired,
+            self._on_name_lost,
         )
         self._obj = _SNIObject(
             self._bus,
@@ -543,8 +525,11 @@ class ChamelShotTray:
         # from the bar for good. Watch the watcher name and (re)register
         # whenever it appears, like Qt/KDE SNI implementations do.
         self._watcher_watch = Gio.bus_watch_name(
-            Gio.BusType.SESSION, WATCHER_NAME, Gio.BusNameWatcherFlags.NONE,
-            self._on_watcher_appeared, self._on_watcher_vanished,
+            Gio.BusType.SESSION,
+            WATCHER_NAME,
+            Gio.BusNameWatcherFlags.NONE,
+            self._on_watcher_appeared,
+            self._on_watcher_vanished,
         )
 
     # ---------------------------------------------------------- registration
@@ -570,13 +555,20 @@ class ChamelShotTray:
             return
         try:
             watcher = Gio.DBusProxy.new_sync(
-                self._bus, Gio.DBusProxyFlags.NONE, None,
-                WATCHER_NAME, WATCHER_PATH, WATCHER_NAME, None,
+                self._bus,
+                Gio.DBusProxyFlags.NONE,
+                None,
+                WATCHER_NAME,
+                WATCHER_PATH,
+                WATCHER_NAME,
+                None,
             )
             watcher.call_sync(
                 "RegisterStatusNotifierItem",
                 GLib.Variant("(s)", (self._bus_name,)),
-                Gio.DBusCallFlags.NONE, -1, None,
+                Gio.DBusCallFlags.NONE,
+                -1,
+                None,
             )
             self._registered = True
         except GLib.Error:
@@ -594,6 +586,4 @@ class ChamelShotTray:
     def update_icon(self, pixmap: QPixmap):
         self._obj.set_icon(pixmap)
         if self._bus:
-            self._bus.emit_signal(
-                None, None, "/StatusNotifierItem", SNI_IFACE, "NewIcon", None
-            )
+            self._bus.emit_signal(None, None, "/StatusNotifierItem", SNI_IFACE, "NewIcon", None)

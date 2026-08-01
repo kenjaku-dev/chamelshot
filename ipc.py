@@ -27,7 +27,7 @@ class IpcServer:
         self.socket_path = socket_path
         self.receiver = receiver
         self.on_command = on_command
-        self._sock = None
+        self._sock: socket.socket | None = None
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._accept_loop, daemon=True)
 
@@ -39,6 +39,8 @@ class IpcServer:
         self._thread.start()
 
     def _accept_loop(self):
+        if self._sock is None:
+            return
         while not self._stop.is_set():
             try:
                 conn, _ = self._sock.accept()
@@ -55,15 +57,13 @@ class IpcServer:
                     msg = json.loads(data.decode("utf-8"))
                     cmd = msg.get("cmd", "")
                     post(self.receiver, self.on_command, cmd)
-                except (ValueError, UnicodeDecodeError):
+                except (ValueError, UnicodeDecodeError) as _:
                     continue
 
     def stop(self):
         self._stop.set()
-        try:
+        if self._sock is not None:
             self._sock.close()
-        except OSError:
-            pass
         try:
             os.unlink(self.socket_path)
         except OSError:
@@ -77,7 +77,7 @@ def send_command(socket_path, cmd) -> bool:
         sock.connect(str(socket_path))
         sock.sendall(json.dumps({"cmd": cmd}).encode("utf-8"))
         return True
-    except (FileNotFoundError, ConnectionRefusedError, OSError):
+    except (FileNotFoundError, ConnectionRefusedError, OSError) as _:
         return False
     finally:
         sock.close()

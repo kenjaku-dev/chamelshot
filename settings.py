@@ -66,10 +66,14 @@ class SettingsDialog(QDialog):
         layout.addLayout(btn_row)
 
     def _reset_defaults(self):
-        if QMessageBox.question(
-            self, "Reset Settings",
-            "Reset all settings to defaults?\n\nChanges take effect immediately.",
-        ) == QMessageBox.StandardButton.Yes:
+        if (
+            QMessageBox.question(
+                self,
+                "Reset Settings",
+                "Reset all settings to defaults?\n\nChanges take effect immediately.",
+            )
+            == QMessageBox.StandardButton.Yes
+        ):
             cfg.save(dict(cfg.DEFAULTS))
             self.config = cfg.load()
             QMessageBox.information(self, "ChamelShot", "Settings reset to defaults.")

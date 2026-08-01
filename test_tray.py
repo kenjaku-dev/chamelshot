@@ -96,16 +96,18 @@ def _write_spec(items: list) -> None:
 
 @pytest.fixture(scope="module")
 def menu_server():
-    _write_spec([
-        {"label": "  \u25fb  Capture Region", "callback": "region"},
-        {"label": "  \u25ad  Capture Window", "callback": "window"},
-        {"type": "separator"},
-        {"label": "  \u23f1  14:22:01", "callback": "history"},
-        {"label": "  \u2014  No screenshots", "callback": None},
-        {"type": "separator"},
-        {"label": "  \u2699  Settings", "callback": "settings"},
-        {"label": "  \u2715  Kill", "callback": "kill"},
-    ])
+    _write_spec(
+        [
+            {"label": "  \u25fb  Capture Region", "callback": "region"},
+            {"label": "  \u25ad  Capture Window", "callback": "window"},
+            {"type": "separator"},
+            {"label": "  \u23f1  14:22:01", "callback": "history"},
+            {"label": "  \u2014  No screenshots", "callback": None},
+            {"type": "separator"},
+            {"label": "  \u2699  Settings", "callback": "settings"},
+            {"label": "  \u2715  Kill", "callback": "kill"},
+        ]
+    )
     for f in (LOG,):
         try:
             os.unlink(f)
@@ -133,9 +135,7 @@ def _client(script: str) -> dict:
         "import json, dbus\n"
         f"bus = dbus.SessionBus()\n"
         f"proxy = bus.get_object('{SERVICE}', '{MENU_PATH}')\n"
-        f"iface = dbus.Interface(proxy, '{DBUSMENU_IFACE}')\n"
-        + script
-        + "\nprint(json.dumps(RESULT))"
+        f"iface = dbus.Interface(proxy, '{DBUSMENU_IFACE}')\n" + script + "\nprint(json.dumps(RESULT))"
     )
     out = subprocess.run(
         [PY, "-c", code],
@@ -193,11 +193,7 @@ def test_get_layout_item_props(menu_server):
 
 
 def test_event_dispatch(menu_server):
-    _client(
-        "iface.Event(1, 'clicked', '0', 0)\n"
-        "iface.Event(8, 'clicked', '0', 0)\n"
-        "RESULT = {}"
-    )
+    _client("iface.Event(1, 'clicked', '0', 0)\niface.Event(8, 'clicked', '0', 0)\nRESULT = {}")
     log = _wait_log(2)
     assert log == ["region", "kill"]
 
@@ -219,11 +215,13 @@ def test_about_to_show_refresh(menu_server):
     assert result["need"] is False
 
     # Simulate a new screenshot appearing in history.
-    _write_spec([
-        {"label": "  \u25fb  Capture Region", "callback": "region"},
-        {"type": "separator"},
-        {"label": "  \u23f1  15:00:00", "callback": "history2"},
-    ])
+    _write_spec(
+        [
+            {"label": "  \u25fb  Capture Region", "callback": "region"},
+            {"type": "separator"},
+            {"label": "  \u23f1  15:00:00", "callback": "history2"},
+        ]
+    )
 
     result = _client(
         "need = bool(iface.AboutToShow(0))\n"
@@ -248,10 +246,7 @@ def test_get_group_properties(menu_server):
 
 
 def test_about_to_show_group(menu_server):
-    result = _client(
-        "out = iface.AboutToShowGroup([0])\n"
-        "RESULT = {'id': out[0][0], 'need': bool(out[0][1])}"
-    )
+    result = _client("out = iface.AboutToShowGroup([0])\nRESULT = {'id': out[0][0], 'need': bool(out[0][1])}")
     assert result["id"] == 0
     assert result["need"] is False
 

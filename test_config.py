@@ -20,7 +20,7 @@ def test_save_writes_comment_template(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_PATH", tmp_path / "config.toml")
     cfg.save({"capture.mode": "fullscreen"})
     written = (tmp_path / "config.toml").read_text()
-    assert "mode = \"fullscreen\"" in written
+    assert 'mode = "fullscreen"' in written
     assert "{" not in written
 
 

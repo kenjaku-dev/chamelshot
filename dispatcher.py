@@ -8,6 +8,8 @@
 
 """Thread-safe dispatch of callbacks from background threads to the Qt main thread."""
 
+import threading
+
 from PySide6.QtCore import QCoreApplication, QEvent, QObject
 
 
@@ -32,3 +34,21 @@ class EventReceiver(QObject):
 
 def post(receiver, fn, *args):
     QCoreApplication.postEvent(receiver, CallEvent(fn, args))
+
+
+def run_async(receiver, work, on_ok=None, on_error=None):
+    """Run work() (blocking I/O) in a background thread and deliver its result
+    to the Qt main thread via post(). on_ok receives the return value,
+    on_error receives the exception. Receiver must be a QObject owned by the
+    main thread."""
+
+    def _work():
+        try:
+            result = work()
+            if on_ok:
+                post(receiver, on_ok, result)
+        except Exception as e:  # noqa: BLE001 - delivered to the UI thread
+            if on_error:
+                post(receiver, on_error, e)
+
+    threading.Thread(target=_work, daemon=True).start()

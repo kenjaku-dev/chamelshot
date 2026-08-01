@@ -150,6 +150,7 @@ class WindowSelector(QObject):
 
 class CountdownOverlay(QWidget):
     finished = Signal()
+    cancelled = Signal()
 
     def __init__(self, seconds: int = 3):
         super().__init__()
@@ -192,4 +193,5 @@ class CountdownOverlay(QWidget):
         if event.key() == Qt.Key.Key_Escape:
             self._timer.stop()
             self.close()
+            self.cancelled.emit()
         super().keyPressEvent(event)

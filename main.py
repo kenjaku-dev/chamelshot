@@ -11,28 +11,80 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-
-from PySide6.QtCore import QPoint, Qt, QTimer
-from PySide6.QtGui import QAction, QCursor, QGuiApplication, QPixmap
-from PySide6.QtWidgets import (
-    QApplication,
-    QLabel,
-    QMenu,
-    QMessageBox,
-    QPushButton,
-    QVBoxLayout,
-    QWidget,
-)
+from typing import TYPE_CHECKING
 
 import config as cfg
 import ipc
-from capture import capture_async, capture_fullscreen, capture_region
-from dispatcher import EventReceiver
-from overlay import CountdownOverlay, RegionSelector, WindowSelector
-from preview import PreviewWindow
-from settings import SettingsDialog
-from tray import ChamelShotTray
 from version import VERSION
+
+if TYPE_CHECKING:
+    from PySide6.QtCore import QPoint, Qt, QTimer
+    from PySide6.QtGui import QAction, QCursor, QGuiApplication, QPixmap
+    from PySide6.QtWidgets import (
+        QApplication,
+        QLabel,
+        QMenu,
+        QMessageBox,
+        QPushButton,
+        QVBoxLayout,
+        QWidget,
+    )
+
+    from capture import capture_async, capture_fullscreen, capture_region
+    from dispatcher import EventReceiver
+    from overlay import CountdownOverlay, RegionSelector, WindowSelector
+    from preview import PreviewWindow
+    from settings import SettingsDialog
+    from tray import ChamelShotTray
+
+# Heavy imports (PySide6, gi, capture/overlay/preview/settings/tray) happen
+# lazily in _load_gui(), so `--version`, `--install-autostart`, and the IPC
+# forward path run in ~50ms instead of paying ~1s of Qt import on every
+# keybind press.
+_loaded_gui = False
+
+
+def _load_gui():
+    global _loaded_gui
+    if _loaded_gui:
+        return
+    import PySide6.QtCore as qtcore  # noqa: N813
+    import PySide6.QtGui as qtgui  # noqa: N813
+    import PySide6.QtWidgets as qtw  # noqa: N813
+
+    import capture as cap
+    import dispatcher as disp
+    import overlay as ov
+    import preview as prv
+    import settings as stg
+    import tray as tr
+
+    g = globals()
+    g["QPoint"] = qtcore.QPoint
+    g["Qt"] = qtcore.Qt
+    g["QTimer"] = qtcore.QTimer
+    g["QAction"] = qtgui.QAction
+    g["QCursor"] = qtgui.QCursor
+    g["QGuiApplication"] = qtgui.QGuiApplication
+    g["QPixmap"] = qtgui.QPixmap
+    g["QApplication"] = qtw.QApplication
+    g["QLabel"] = qtw.QLabel
+    g["QMenu"] = qtw.QMenu
+    g["QMessageBox"] = qtw.QMessageBox
+    g["QPushButton"] = qtw.QPushButton
+    g["QVBoxLayout"] = qtw.QVBoxLayout
+    g["QWidget"] = qtw.QWidget
+    g["capture_async"] = cap.capture_async
+    g["capture_fullscreen"] = cap.capture_fullscreen
+    g["capture_region"] = cap.capture_region
+    g["EventReceiver"] = disp.EventReceiver
+    g["CountdownOverlay"] = ov.CountdownOverlay
+    g["RegionSelector"] = ov.RegionSelector
+    g["WindowSelector"] = ov.WindowSelector
+    g["PreviewWindow"] = prv.PreviewWindow
+    g["SettingsDialog"] = stg.SettingsDialog
+    g["ChamelShotTray"] = tr.ChamelShotTray
+    _loaded_gui = True
 
 
 def _make_pixmap() -> QPixmap:
@@ -74,7 +126,6 @@ class ChamelShotApp:
         self.settings = cfg.load()
         self.selector: RegionSelector | WindowSelector | None = None
         self._launcher: QWidget | None = None
-        self._menu_open = False
         self._capturing = False
         self._menu: QMenu | None = None
         self._receiver = EventReceiver()
@@ -217,29 +268,23 @@ class ChamelShotApp:
             menu.addAction(action)
 
     def _show_tray_menu(self, x=0, y=0):
-        if self._menu_open:
-            return
-        self._menu_open = True
-        try:
-            menu = self._ensure_menu()
-            self._rebuild_menu_items()
+        menu = self._ensure_menu()
+        self._rebuild_menu_items()
 
-            # Coordinates come from the SNI host (ContextMenu/Activate) and are
-            # reliable screen coords — prefer them over QCursor.pos(), which is
-            # garbage on Wayland. (0,0) only happens for IPC "menu" commands.
-            pt = QPoint(x, y)
-            if pt.x() <= 0 and pt.y() <= 0:
-                pt = QCursor.pos()
+        # Coordinates come from the SNI host (ContextMenu/Activate) and are
+        # reliable screen coords — prefer them over QCursor.pos(), which is
+        # garbage on Wayland. (0,0) only happens for IPC "menu" commands.
+        pt = QPoint(x, y)
+        if pt.x() <= 0 and pt.y() <= 0:
+            pt = QCursor.pos()
 
-            menu.popup(pt)
-            if QGuiApplication.platformName() == "wayland":
-                # A frameless toplevel never gets focus on its own — the
-                # compositor keeps focus on the previously focused window.
-                menu.activateWindow()
-                QApplication.setActiveWindow(menu)
-                menu.setFocus()
-        finally:
-            self._menu_open = False
+        menu.popup(pt)
+        if QGuiApplication.platformName() == "wayland":
+            # A frameless toplevel never gets focus on its own — the
+            # compositor keeps focus on the previously focused window.
+            menu.activateWindow()
+            QApplication.setActiveWindow(menu)
+            menu.setFocus()
 
     def _open_settings(self, *_args):
         dlg = SettingsDialog()
@@ -309,6 +354,9 @@ class ChamelShotApp:
         QTimer.singleShot(0, self._show_launcher)
 
     def _do_capture(self, pixmap):
+        old = getattr(self, "preview", None)
+        if old is not None:
+            old.close()
         self.preview = PreviewWindow(
             pixmap,
             config=self.settings,
@@ -338,9 +386,13 @@ class ChamelShotApp:
             self._capturing = True
             self._cd = CountdownOverlay(seconds=delay)
             self._cd.finished.connect(lambda: self._do_capture_async(capture_fn))
+            self._cd.cancelled.connect(self._on_countdown_cancelled)
             self._cd.show()
         else:
             self._do_capture_async(capture_fn)
+
+    def _on_countdown_cancelled(self):
+        self._capturing = False
 
     def on_region_selected(self, left, top, right, bottom):
         delay = self.settings.get("capture.delay", 0)
@@ -428,13 +480,19 @@ def main():
     ipc.clean_stale_socket(cfg.IPC_SOCKET_PATH)
 
     if "--settings" in sys.argv:
+        _load_gui()
         app = QApplication(sys.argv)
         dlg = SettingsDialog()
         dlg.exec()
         return
 
     auto_capture = "--capture" in sys.argv or "-c" in sys.argv
-    app = ChamelShotApp(auto_capture=auto_capture)
+    _load_gui()
+    try:
+        app = ChamelShotApp(auto_capture=auto_capture)
+    except ipc.AlreadyRunningError:
+        print("chamelshot: another instance started concurrently; exiting")
+        return
 
     if "--test-tray" in sys.argv:
         # Start normally, then pop the tray menu ~1.5s later once the SNI

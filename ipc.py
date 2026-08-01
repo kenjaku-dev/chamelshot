@@ -17,9 +17,11 @@ import os
 import socket
 import threading
 
-from dispatcher import post
-
 PING = "ping"
+
+
+class AlreadyRunningError(Exception):
+    """Another daemon holds the socket and is alive."""
 
 
 class IpcServer:
@@ -33,8 +35,32 @@ class IpcServer:
 
     def start(self):
         os.makedirs(os.path.dirname(self.socket_path), exist_ok=True)
-        self._sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self._sock.bind(str(self.socket_path))
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            sock.bind(str(self.socket_path))
+        except OSError:
+            # Socket exists. Race: two instances can both unlink a stale
+            # socket, then both try to bind — the loser must not crash.
+            probe = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            try:
+                probe.connect(str(self.socket_path))
+                probe.close()
+                raise AlreadyRunningError("another instance holds the socket")  # noqa: TRY003 - internal
+            except AlreadyRunningError:
+                sock.close()
+                raise
+            except OSError:
+                pass
+            try:
+                os.unlink(self.socket_path)
+            except OSError:
+                pass
+            try:
+                sock.bind(str(self.socket_path))
+            except OSError:
+                sock.close()
+                raise AlreadyRunningError("socket bind failed")  # noqa: TRY003 - internal
+        self._sock = sock
         self._sock.listen(4)
         self._thread.start()
 
@@ -56,6 +82,10 @@ class IpcServer:
                 try:
                     msg = json.loads(data.decode("utf-8"))
                     cmd = msg.get("cmd", "")
+                    # Imported lazily: `import ipc` must stay PySide6-free so
+                    # CLI forwarding (`chamelshot --capture`) skips Qt import.
+                    from dispatcher import post
+
                     post(self.receiver, self.on_command, cmd)
                 except (ValueError, UnicodeDecodeError) as _:
                     continue

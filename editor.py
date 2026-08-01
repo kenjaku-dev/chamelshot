@@ -43,6 +43,8 @@ class Annotation:
 class AnnotationCanvas(QWidget):
     def __init__(self, pixmap: QPixmap, parent=None):
         super().__init__(parent)
+        self._source: QPixmap | None = None
+        self._src_image: QImage | None = None
         self.source = pixmap
         self.annotations: list[Annotation] = []
         self.current: Annotation | None = None
@@ -59,6 +61,22 @@ class AnnotationCanvas(QWidget):
         self.setMinimumSize(200, 150)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self._update_cursor()
+
+    @property
+    def source(self) -> QPixmap:
+        if self._source is None:
+            raise RuntimeError("source pixmap not set")  # noqa: TRY003 - internal invariant
+        return self._source
+
+    @source.setter
+    def source(self, pixmap: QPixmap):
+        self._source = pixmap
+        self._src_image = None
+
+    def _source_image(self) -> QImage:
+        if self._src_image is None:
+            self._src_image = self.source.toImage()
+        return self._src_image
 
     def _draw_at(self) -> QRectF:
         pw, ph = self.source.width(), self.source.height()
@@ -221,7 +239,7 @@ class AnnotationCanvas(QWidget):
         rect = QRectF(ann.points[0], ann.points[1])
         if rect.isEmpty():
             return
-        src = self.source.toImage()
+        src = self._source_image()
         region = src.copy(rect.toRect())
         blurred = _box_blur(region, max(1, ann.blur_radius))
         p.drawImage(rect.topLeft(), blurred)
@@ -278,7 +296,9 @@ class AnnotationCanvas(QWidget):
             return
         pos = self._map_to_source(event.position())
         if self.tool == "pen":
-            self.current.points.append(pos)
+            pts = self.current.points
+            if not pts or (pos - pts[-1]).manhattanLength() >= 2.0:
+                self.current.points.append(pos)
         else:
             if len(self.current.points) >= 2:
                 self.current.points[-1] = pos
@@ -300,56 +320,31 @@ class AnnotationCanvas(QWidget):
 
 
 def _box_blur(src: QImage, radius: int) -> QImage:
-    w, h = src.width(), src.height()
-    if w < 1 or h < 1 or radius < 1:
+    """Native box-blur approximation.
+
+    Downscaling with SmoothTransformation averages each (s x s) block, then
+    scaling back up interpolates — a box blur of extent ~s. The old pure-Python
+    per-pixel sliding window took ~10s on 1280x720; this runs in a few ms and
+    never touches pixels from Python.
+    """
+    if radius < 1 or src.isNull() or src.width() < 2 or src.height() < 2:
         return src
-
-    def _window_pass(img, horizontal: bool):
-        out = QImage(img.size(), QImage.Format.Format_ARGB32)
-        outer = h if horizontal else w
-        inner = w if horizontal else h
-
-        def pc(xp, yp):
-            return img.pixelColor(xp, yp)
-
-        for i in range(outer):
-            r, g, b, a = 0, 0, 0, 0
-            div = 0
-            for k in range(-radius, radius + 1):
-                if 0 <= k < inner:
-                    cx, cy = (k, i) if horizontal else (i, k)
-                    c = pc(cx, cy)
-                    r += c.red()
-                    g += c.green()
-                    b += c.blue()
-                    a += c.alpha()
-                    div += 1
-            ox, oy = (0, i) if horizontal else (i, 0)
-            out.setPixelColor(ox, oy, QColor(r // div, g // div, b // div, a // div))
-            for j in range(1, inner):
-                in_remove = j - radius - 1
-                if 0 <= in_remove < inner:
-                    rx, ry = (in_remove, i) if horizontal else (i, in_remove)
-                    c = pc(rx, ry)
-                    r -= c.red()
-                    g -= c.green()
-                    b -= c.blue()
-                    a -= c.alpha()
-                    div -= 1
-                in_add = j + radius
-                if 0 <= in_add < inner:
-                    ax, ay = (in_add, i) if horizontal else (i, in_add)
-                    c = pc(ax, ay)
-                    r += c.red()
-                    g += c.green()
-                    b += c.blue()
-                    a += c.alpha()
-                    div += 1
-                ox, oy = (j, i) if horizontal else (i, j)
-                out.setPixelColor(ox, oy, QColor(r // div, g // div, b // div, a // div))
-        return out
-
-    return _window_pass(_window_pass(src, True), False)
+    w, h = src.width(), src.height()
+    s = min(2 * radius + 1, max(w, h))
+    if s <= 1:
+        return src
+    small = src.scaled(
+        max(1, w // s),
+        max(1, h // s),
+        Qt.AspectRatioMode.IgnoreAspectRatio,
+        Qt.TransformationMode.SmoothTransformation,
+    )
+    return small.scaled(
+        w,
+        h,
+        Qt.AspectRatioMode.IgnoreAspectRatio,
+        Qt.TransformationMode.SmoothTransformation,
+    )
 
 
 TOOL_GLYPH = {

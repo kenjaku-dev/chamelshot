@@ -13,7 +13,7 @@ import subprocess
 from pathlib import Path
 
 from PySide6.QtCore import QBuffer, QIODevice, Qt, QTimer
-from PySide6.QtGui import QKeySequence, QPixmap, QShortcut
+from PySide6.QtGui import QImage, QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -32,7 +32,20 @@ from PySide6.QtWidgets import (
 )
 
 import config as cfg
+from dispatcher import run_async
 from editor import Annotator
+
+
+def _history_add(saved_path):
+    """Copy an already-saved file into the history (no second PNG encode)."""
+    hist_dir = cfg.HISTORY_DIR
+    hist_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    dest = hist_dir / f"screenshot_{ts}.png"
+    shutil.copy2(saved_path, dest)
+    entries = sorted(hist_dir.glob("screenshot_*.png"), reverse=True)
+    for old in entries[cfg.MAX_HISTORY :]:
+        old.unlink(missing_ok=True)
 
 
 class ExportDialog(QDialog):
@@ -284,16 +297,6 @@ class PreviewWindow(QWidget):
         if self.cfg.get("general.auto_copy"):
             QTimer.singleShot(50, lambda: self.copy_to_clipboard(closing=False))
 
-    def _save_to_history(self, pixmap: QPixmap):
-        hist_dir = cfg.HISTORY_DIR
-        hist_dir.mkdir(parents=True, exist_ok=True)
-        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        path = hist_dir / f"screenshot_{ts}.png"
-        pixmap.save(str(path), "PNG")
-        entries = sorted(hist_dir.glob("screenshot_*.png"), reverse=True)
-        for old in entries[cfg.MAX_HISTORY :]:
-            old.unlink(missing_ok=True)
-
     def _notify(self, message: str):
         if not self.cfg.get("general.notification", True):
             return
@@ -325,58 +328,76 @@ class PreviewWindow(QWidget):
             return self.annotator.canvas.result_pixmap()
         return self.pixmap
 
-    def _save_pixmap(self, pixmap: QPixmap, path: str) -> bool:
-        fmt = self.cfg.get("save.format", "PNG")
-        quality = self.cfg.get("save.quality", -1)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        if quality >= 0:
-            return pixmap.save(path, fmt, quality)
-        return pixmap.save(path, fmt)
+    def _current_image(self) -> QImage:
+        return self._current_pixmap().toImage()
+
+    def _async_error(self, title: str):
+        def _err(e):
+            QMessageBox.warning(self, title, str(e))
+
+        return _err
+
+    def _save_async(self, img: QImage, path: str, fmt: str, quality: int, close: bool = True):
+        """Encode + write + history-copy in a worker thread; UI stays responsive."""
+        if not isinstance(path, str) or not path:
+            return
+
+        def work():
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            # PySide6 stubs type the format parameter as bytes (const char*).
+            fmt_bytes = fmt.encode()
+            ok = img.save(path, fmt_bytes) if quality < 0 else img.save(path, fmt_bytes, quality)
+            if not ok:
+                raise RuntimeError(f"Failed to write file: {path}")
+            _history_add(path)
+            return path
+
+        def done(saved_path):
+            self._notify(f"Saved to {saved_path}")
+            if close:
+                self.close()
+
+        run_async(self, work, done, self._async_error("Save Error"))
 
     def save(self):
-        try:
-            fmt = self.cfg.get("save.format", "PNG")
-            path, _ = QFileDialog.getSaveFileName(
-                self,
-                "Save Screenshot",
-                os.path.expanduser("~/chamelshot.png"),
-                f"{fmt} (*.{fmt.lower()})",
-                options=QFileDialog.Option.DontUseNativeDialog,
-            )
-            if path:
-                px = self._current_pixmap()
-                if not self._save_pixmap(px, path):
-                    raise RuntimeError(f"Failed to write file: {path}")
-                self._save_to_history(px)
-                self._notify(f"Saved to {path}")
-                self.close()
-        except Exception as e:
-            QMessageBox.warning(self, "Save Error", str(e))
+        fmt = self.cfg.get("save.format", "PNG")
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Screenshot",
+            os.path.expanduser("~/chamelshot.png"),
+            f"{fmt} (*.{fmt.lower()})",
+            options=QFileDialog.Option.DontUseNativeDialog,
+        )
+        if path:
+            img = self._current_image()
+            self._save_async(img, path, fmt, self.cfg.get("save.quality", -1))
 
     def copy_to_clipboard(self, closing=True):
         try:
-            px = self._current_pixmap()
-            buf = QBuffer()
-            buf.open(QIODevice.OpenModeFlag.ReadWrite)
-            if not px.save(buf, "PNG"):
-                raise RuntimeError("Failed to encode PNG")
-            png_data = buf.data().data()
-            buf.close()
-
+            img = self._current_image()
             tool = self.cfg.get("clipboard.tool", "wl-copy")
-            if tool in ("wl-copy", "both"):
-                if shutil.which("wl-copy"):
-                    subprocess.run(
-                        ["wl-copy", "--type", "image/png"],
-                        input=png_data,
-                        timeout=5,
-                    )
-            if tool in ("qt", "both"):
-                QApplication.clipboard().setPixmap(px)
+            use_wl = tool in ("wl-copy", "both") and shutil.which("wl-copy")
+            use_qt = tool in ("qt", "both")
 
-            self._notify("Copied to clipboard")
-            if closing:
-                self.close()
+            def work():
+                buf = QBuffer()
+                buf.open(QIODevice.OpenModeFlag.ReadWrite)
+                if not img.save(buf, b"PNG"):
+                    raise RuntimeError("Failed to encode PNG")
+                png_data = buf.data().data()
+                buf.close()
+                if use_wl:
+                    subprocess.run(["wl-copy", "--type", "image/png"], input=png_data, timeout=5)
+                return png_data
+
+            def done(_png_data):
+                if use_qt:
+                    QApplication.clipboard().setPixmap(QPixmap.fromImage(img))
+                self._notify("Copied to clipboard")
+                if closing:
+                    self.close()
+
+            run_async(self, work, done, self._async_error("Copy Error"))
         except Exception as e:
             QMessageBox.warning(self, "Copy Error", str(e))
 
@@ -412,13 +433,9 @@ class PreviewWindow(QWidget):
     def _quick_save(self, close=True):
         try:
             path = cfg.generate_save_path(self.cfg)
-            px = self._current_pixmap()
-            if not self._save_pixmap(px, path):
-                raise RuntimeError(f"Failed to write file: {path}")
-            self._save_to_history(px)
-            self._notify(f"Saved to {path}")
-            if close:
-                self.close()
+            img = self._current_image()
+            fmt = self.cfg.get("save.format", "PNG")
+            self._save_async(img, path, fmt, self.cfg.get("save.quality", -1), close=close)
         except Exception as e:
             QMessageBox.warning(self, "Save Error", str(e))
 
@@ -429,34 +446,31 @@ class PreviewWindow(QWidget):
             return
         path, fmt, quality = result
         if path:
-            px = self._current_pixmap()
-            try:
-                if quality >= 0:
-                    ok = px.save(path, fmt, quality)
-                else:
-                    ok = px.save(path, fmt)
-                if not ok:
-                    raise RuntimeError(f"Failed to write file: {path}")
-                self._save_to_history(px)
-                self._notify(f"Exported to {path}")
-                self.close()
-            except Exception as e:
-                QMessageBox.warning(self, "Export Error", str(e))
+            img = self._current_image()
+            self._save_async(img, path, fmt, quality)
 
     def _open_viewer(self):
-        px = self._current_pixmap()
+        img = self._current_image()
         path = cfg.HISTORY_DIR / "_preview_tmp.png"
         path.parent.mkdir(parents=True, exist_ok=True)
-        px.save(str(path), "PNG")
-        for viewer in ("xdg-open", "gimp", "eog", "feh", "qiv", "sxiv"):
-            if shutil.which(viewer):
-                subprocess.Popen(
-                    [viewer, str(path)],
-                    stdin=subprocess.DEVNULL,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                break
+
+        def work():
+            if not img.save(str(path), b"PNG"):
+                raise RuntimeError("Failed to write preview file")
+            return path
+
+        def done(tmp_path):
+            for viewer in ("xdg-open", "gimp", "eog", "feh", "qiv", "sxiv"):
+                if shutil.which(viewer):
+                    subprocess.Popen(
+                        [viewer, str(tmp_path)],
+                        stdin=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                    break
+
+        run_async(self, work, done, self._async_error("Open Error"))
 
     def new_capture(self):
         self.close()

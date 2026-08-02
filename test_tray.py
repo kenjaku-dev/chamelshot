@@ -22,6 +22,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -32,8 +33,8 @@ from tray import DBUSMENU_IFACE, MENU_PATH  # noqa: E402
 
 PY = sys.executable
 SERVICE = "org.example.ChamelShotMenu"
-SPEC = "/tmp/opencode/chamelshot-menu-spec.json"
-LOG = "/tmp/opencode/chamelshot-menu-log.json"
+SPEC = os.path.join(tempfile.gettempdir(), "chamelshot-menu-spec.json")
+LOG = os.path.join(tempfile.gettempdir(), "chamelshot-menu-log.json")
 
 SERVER_CODE = r"""
 import json

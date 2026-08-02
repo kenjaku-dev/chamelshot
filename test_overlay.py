@@ -1,5 +1,4 @@
 import os
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 from overlay import WindowSelector
@@ -13,12 +12,12 @@ class FakeQPixmap:
         return self._null
 
 
-def _make_selector() -> tuple[WindowSelector, list[tuple[str, Any]]]:
+def _make_selector() -> tuple[WindowSelector, list[tuple[str, object]]]:
     sel = WindowSelector()
-    seen: list[tuple[str, Any]] = []
+    seen: list[tuple[str, object]] = []
     sel.pixmap_captured.connect(lambda pm: seen.append(("pixmap", pm)))
     sel.error.connect(lambda msg: seen.append(("error", msg)))
-    sel.cancelled.connect(lambda: seen.append(("cancelled",)))
+    sel.cancelled.connect(lambda: seen.append(("cancelled", None)))
     return sel, seen
 
 

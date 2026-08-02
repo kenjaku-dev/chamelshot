@@ -89,6 +89,20 @@ loop.run()
 """
 
 
+FULL_SPEC = [
+    {"label": "  \u25a6  Show Interface", "callback": "show-interface"},
+    {"type": "separator"},
+    {"label": "  \u25fb  Capture Region", "callback": "region"},
+    {"label": "  \u25ad  Capture Window", "callback": "window"},
+    {"type": "separator"},
+    {"label": "  \u23f1  14:22:01", "callback": "history"},
+    {"label": "  \u2014  No screenshots", "callback": None},
+    {"type": "separator"},
+    {"label": "  \u2699  Settings", "callback": "settings"},
+    {"label": "  \u2715  Kill", "callback": "kill"},
+]
+
+
 def _write_spec(items: list) -> None:
     with open(SPEC, "w") as f:
         json.dump(items, f)
@@ -96,18 +110,7 @@ def _write_spec(items: list) -> None:
 
 @pytest.fixture(scope="module")
 def menu_server():
-    _write_spec(
-        [
-            {"label": "  \u25fb  Capture Region", "callback": "region"},
-            {"label": "  \u25ad  Capture Window", "callback": "window"},
-            {"type": "separator"},
-            {"label": "  \u23f1  14:22:01", "callback": "history"},
-            {"label": "  \u2014  No screenshots", "callback": None},
-            {"type": "separator"},
-            {"label": "  \u2699  Settings", "callback": "settings"},
-            {"label": "  \u2715  Kill", "callback": "kill"},
-        ]
-    )
+    _write_spec(FULL_SPEC)
     for f in (LOG,):
         try:
             os.unlink(f)
@@ -173,7 +176,7 @@ def test_get_layout_root(menu_server):
     assert result["root_id"] == 0
     assert result["type"] == "root"
     assert result["display"] == "submenu"
-    assert result["children"] == [1, 2, 3, 4, 5, 6, 7, 8]
+    assert result["children"] == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
 
 def test_get_layout_item_props(menu_server):
@@ -181,27 +184,27 @@ def test_get_layout_item_props(menu_server):
         "_, layout = iface.GetLayout(0, -1, dbus.Array([], signature='s'))\n"
         "children = list(layout[2])\n"
         "item1 = children[0][1]\n"
-        "sep = children[2][1]\n"
-        "disabled = children[4][1]\n"
+        "sep = children[1][1]\n"
+        "disabled = children[6][1]\n"
         "RESULT = {'label': item1['label'], 'item1_enabled': bool(item1['enabled']),\n"
         "          'sep_type': sep['type'], 'disabled_enabled': bool(disabled['enabled'])}"
     )
-    assert result["label"] == "  \u25fb  Capture Region"
+    assert result["label"] == "  \u25a6  Show Interface"
     assert result["item1_enabled"] is True
     assert result["sep_type"] == "separator"
     assert result["disabled_enabled"] is False
 
 
 def test_event_dispatch(menu_server):
-    _client("iface.Event(1, 'clicked', '0', 0)\niface.Event(8, 'clicked', '0', 0)\nRESULT = {}")
+    _client("iface.Event(1, 'clicked', '0', 0)\niface.Event(10, 'clicked', '0', 0)\nRESULT = {}")
     log = _wait_log(2)
-    assert log == ["region", "kill"]
+    assert log == ["show-interface", "kill"]
 
 
 def test_event_ignores_non_clicked(menu_server):
     before = _wait_log(0)
     _client(
-        "iface.Event(2, 'opened', '0', 0)\n"
+        "iface.Event(2, 'opened', '0', 0)\n"  # separator id
         "iface.Event(99, 'clicked', '0', 0)\n"  # unknown id
         "RESULT = {}"
     )
@@ -234,6 +237,12 @@ def test_about_to_show_refresh(menu_server):
     assert result["children"] == [1, 2, 3]
     assert result["label"] == "  \u23f1  15:00:00"
 
+    # Restore the full spec AND rebuild the server layout: the server only
+    # re-reads the builder on AboutToShow, so a plain spec rewrite would leave
+    # later tests (test_get_group_properties, ...) staring at the stale layout.
+    _write_spec(FULL_SPEC)
+    _client("RESULT = {'need': bool(iface.AboutToShow(0))}")
+
 
 def test_get_group_properties(menu_server):
     result = _client(
@@ -242,7 +251,7 @@ def test_get_group_properties(menu_server):
         "          'label': groups[0][1]['label']}"
     )
     assert result["ids"] == [1, 3]
-    assert result["label"] == "  \u25fb  Capture Region"
+    assert result["label"] == "  \u25a6  Show Interface"
 
 
 def test_about_to_show_group(menu_server):

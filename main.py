@@ -192,6 +192,8 @@ class ChamelShotApp:
 
     def _build_menu_items(self) -> list:
         items = [
+            {"label": "  \u25a6  Show Interface", "callback": self._show_launcher},
+            {"type": "separator"},
             {"label": "  ◻  Capture Region", "callback": lambda: self._start_capture_mode("region")},
             {"label": "  ▭  Capture Window", "callback": lambda: self._start_capture_mode("window")},
             {"label": "  ⊞  Capture Fullscreen", "callback": lambda: self._start_capture_mode("fullscreen")},
@@ -342,11 +344,11 @@ class ChamelShotApp:
 
     def _start_capture_mode(self, mode):
         self.settings["capture.mode"] = mode
+        if self._launcher is not None:
+            self._launcher.hide()
         self.start_capture()
 
     def _start_from_launcher(self, mode):
-        if self._launcher:
-            self._launcher.hide()
         self._start_capture_mode(mode)
 
     def _on_cancel(self):

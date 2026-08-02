@@ -25,11 +25,12 @@ packaging/build-appimage.sh 4.2.0       # builds AppImage into dist/
 | `tray.py` | SNI tray + dbusmenu (Gio/GVariant). **Wire-format-exact — see BUG_REPORT.md #29–#31 for every gotcha found** |
 | `capture.py` | grim subprocess calls + QPixmap decoding + async threading |
 | `editor.py` | pixel editor / annotations, save + copy-to-clipboard |
-| `overlay.py`, `preview.py` | fullscreen selection overlay, preview window |
+| `overlay.py`, `preview.py` | fullscreen selection overlay (slurp + swaymsg/hyprctl boxes; niri uses `niri msg action screenshot-window`), preview window |
 | `settings.py` | settings dialog UI (reads/writes `config.py` TOML store) |
 | `config.py` | validated defaults (dataclass + loader) |
 | `ipc.py` | single-instance unix-socket server (first instance) + `--command` client |
 | `dispatcher.py` | `post()` — post callables from worker threads to the Qt main thread |
+| `proc.py` | `env()` — strips PyInstaller bundle `LD_LIBRARY_PATH` for external helpers |
 | `version.py` | `__version__` |
 | `aur/` | Arch AUR packaging (PKGBUILD + .SRCINFO mirror) |
 | `packaging/` | AppImage build script + desktop file |
@@ -52,7 +53,7 @@ packaging/build-appimage.sh 4.2.0       # builds AppImage into dist/
 ## Release flow (vX.Y.Z)
 
 1. `git tag -f vX.Y.Z && git push -f origin vX.Y.Z` — GitHub Actions runs
-   lint → typecheck → build → release (PyPI + GitHub assets incl. AppImage).
+   lint → typecheck → test → build → release (PyPI + GitHub assets incl. AppImage).
 2. AUR package `chamelshot` sources the tag tarball (sha256sums are SKIP);
    edit `aur/PKGBUILD`, regen `.SRCINFO` via `makepkg --printsrcinfo`, commit
    in the AUR clone, push. Same change in repo `aur/`.

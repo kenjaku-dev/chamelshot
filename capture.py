@@ -12,6 +12,7 @@ import time
 
 from PySide6.QtGui import QPixmap
 
+import proc
 from dispatcher import post
 
 GRIM_NOT_FOUND = "grim is not installed. Install it: sudo pacman -S grim"
@@ -23,7 +24,7 @@ def _run_grim(args: list[str], delay: int = 0) -> QPixmap:
     cmd = ["grim"]
     cmd.extend(args)
     try:
-        result = subprocess.run(cmd, capture_output=True, timeout=10)
+        result = subprocess.run(cmd, capture_output=True, timeout=10, env=proc.env())
     except FileNotFoundError:
         raise RuntimeError(GRIM_NOT_FOUND)
     if result.returncode != 0:

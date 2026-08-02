@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 import config as cfg
+import proc
 from version import VERSION
 
 
@@ -111,6 +112,7 @@ class SettingsDialog(QDialog):
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                env=proc.env(),
             )
         except FileNotFoundError:
             pass

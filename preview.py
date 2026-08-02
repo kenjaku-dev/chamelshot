@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 )
 
 import config as cfg
+import proc
 from dispatcher import run_async
 from editor import Annotator
 
@@ -129,7 +130,7 @@ class ExportDialog(QDialog):
         tool = self.cfg.get("clipboard.tool", "wl-copy")
         if tool in ("wl-copy", "both"):
             if shutil.which("wl-copy"):
-                subprocess.run(["wl-copy", "--type", "image/png"], input=png_data, timeout=5)
+                subprocess.run(["wl-copy", "--type", "image/png"], input=png_data, timeout=5, env=proc.env())
         if tool in ("qt", "both"):
             QApplication.clipboard().setPixmap(self.pixmap)
 
@@ -306,6 +307,7 @@ class PreviewWindow(QWidget):
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                env=proc.env(),
             )
         except Exception:
             pass
@@ -388,7 +390,7 @@ class PreviewWindow(QWidget):
                 png_data = buf.data().data()
                 buf.close()
                 if use_wl:
-                    subprocess.run(["wl-copy", "--type", "image/png"], input=png_data, timeout=5)
+                    subprocess.run(["wl-copy", "--type", "image/png"], input=png_data, timeout=5, env=proc.env())
                 return png_data
 
             def done(_png_data):
@@ -468,6 +470,7 @@ class PreviewWindow(QWidget):
                         stdin=subprocess.DEVNULL,
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
+                        env=proc.env(),
                     )
                     break
 

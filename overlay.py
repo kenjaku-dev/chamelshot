@@ -10,11 +10,16 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 import threading
+import time
+from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QPixmap
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+
+import proc
 
 
 class RegionSelector(QObject):
@@ -34,6 +39,7 @@ class RegionSelector(QObject):
                 capture_output=True,
                 stdin=subprocess.DEVNULL,
                 timeout=30,
+                env=proc.env(),
             )
             if result.returncode != 0:
                 self.cancelled.emit()
@@ -52,6 +58,8 @@ class RegionSelector(QObject):
 class WindowSelector(QObject):
     region_selected = Signal(int, int, int, int)
     cancelled = Signal()
+    error = Signal(str)
+    pixmap_captured = Signal(object)
 
     def __init__(self):
         super().__init__()
@@ -61,9 +69,17 @@ class WindowSelector(QObject):
 
     def _run(self):
         try:
+            if "NIRI_SOCKET" in os.environ:
+                self._run_niri()
+                return
             boxes = self._get_window_boxes()
             if not boxes:
-                self.cancelled.emit()
+                if "SWAYSOCK" in os.environ or "HYPRLAND_INSTANCE_SIGNATURE" in os.environ:
+                    self.cancelled.emit()
+                else:
+                    self.error.emit(
+                        "Window capture is not supported on this compositor yet. Use Capture Region instead."
+                    )
                 return
             args = ["slurp", "-r", "-f", "%x %y %w %h"]
             result = subprocess.run(
@@ -71,6 +87,7 @@ class WindowSelector(QObject):
                 input="\n".join(boxes).encode(),
                 capture_output=True,
                 timeout=30,
+                env=proc.env(),
             )
             if result.returncode != 0:
                 self.cancelled.emit()
@@ -85,6 +102,37 @@ class WindowSelector(QObject):
         except subprocess.TimeoutExpired:
             self.cancelled.emit()
 
+    def _run_niri(self):
+        # niri's IPC only reports tile sizes/offsets, not absolute window
+        # geometry (niri-wm/niri#2381), so slurp boxes are impossible. Use
+        # niri's native focused-window screenshot instead. The file is written
+        # asynchronously after the command returns, so poll for it briefly.
+        try:
+            with tempfile.TemporaryDirectory(prefix="chamelshot-") as tmp:
+                out = Path(tmp) / "window.png"
+                result = subprocess.run(
+                    ["niri", "msg", "action", "screenshot-window", "--path", str(out)],
+                    capture_output=True,
+                    timeout=10,
+                    env=proc.env(),
+                )
+                if result.returncode != 0:
+                    self.error.emit("niri window capture failed: " + result.stderr.decode().strip())
+                    return
+                for _ in range(50):
+                    if out.exists() and out.stat().st_size > 0:
+                        break
+                    time.sleep(0.1)
+                pm = QPixmap(str(out)) if out.exists() else QPixmap()
+                if pm.isNull():
+                    self.error.emit("niri window capture produced an empty image")
+                    return
+                self.pixmap_captured.emit(pm)
+        except FileNotFoundError:
+            self.error.emit("niri is not installed (niri msg not found)")
+        except subprocess.TimeoutExpired:
+            self.error.emit("niri window capture timed out")
+
     def _get_window_boxes(self) -> list[str]:
         if "SWAYSOCK" in os.environ:
             return self._sway_boxes()
@@ -98,6 +146,7 @@ class WindowSelector(QObject):
                 ["swaymsg", "-t", "get_tree"],
                 capture_output=True,
                 timeout=5,
+                env=proc.env(),
             )
             if result.returncode != 0:
                 return []
@@ -129,6 +178,7 @@ class WindowSelector(QObject):
                 ["hyprctl", "clients", "-j"],
                 capture_output=True,
                 timeout=5,
+                env=proc.env(),
             )
             if result.returncode != 0:
                 return []

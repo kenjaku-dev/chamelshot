@@ -177,13 +177,14 @@ bind = CTRL, Print, exec, chamelshot --settings
 - Browse directly from tray menu (opens with `xdg-open`)
 
 ### Capture Delay
-- Configure in settings (0-30 seconds)
+- Configure in settings (0-60 seconds)
 - Visual fullscreen countdown overlay (semi-transparent black, large white numerals)
 - Press `Escape` to cancel countdown
 
 ### Window Capture
 - Reads visible window geometry from `swaymsg -t get_tree` (Sway) or `hyprctl clients -j` (Hyprland)
 - Passes bounding boxes to `slurp -r` for snap selection
+- On niri, uses `niri msg action screenshot-window` to capture the focused window directly
 - Works automatically — no manual window list or menu needed
 
 ---
@@ -208,8 +209,8 @@ quality = -1
 
 [capture]
 mode = "region"       # region | window | fullscreen
-delay = 0             # seconds (0-30)
-include_cursor = true
+delay = 0             # seconds (0-60)
+include_cursor = false
 
 [preview]
 stay_on_top = true
@@ -221,10 +222,10 @@ max_width = 800
 tool = "wl-copy"      # wl-copy | qt | both
 
 [shortcuts]
-save = ""
-copy = ""
-close = ""
-new_capture = ""
+save = "Ctrl+S"
+copy = "Ctrl+C"
+close = "Escape"
+new_capture = "Ctrl+N"
 ```
 
 ---
@@ -236,7 +237,7 @@ new_capture = ""
 | No tray icon on GNOME | GNOME has no native tray support — install the **AppIndicator extension** |
 | No tray icon after waybar restart | Fixed in v4.1.0 (re-registers with the status notifier watcher) — update |
 | Copy to clipboard does nothing | `wl-clipboard` not installed — `sudo pacman -S wl-clipboard` |
-| Window capture doesn't list windows | Missing `swaymsg` (Sway) or `hyprctl` (Hyprland) |
+| Window capture doesn't list windows | Missing `swaymsg` (Sway) or `hyprctl` (Hyprland); on niri the focused window is captured directly |
 | AppImage won't start | See [AppImage](#appimage-portable-any-distro) section (libfuse2) |
 | Tray menu issues | Run `chamelshot --test-tray` to pop the menu and diagnose |
 

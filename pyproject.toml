@@ -37,7 +37,7 @@ reportMissingImports = false
 package = true
 
 [tool.setuptools]
-py-modules = ["__init__", "version", "dispatcher", "ipc", "editor", "main", "capture", "config", "overlay", "preview", "settings", "tray"]
+py-modules = ["__init__", "version", "dispatcher", "ipc", "editor", "main", "capture", "config", "overlay", "proc", "preview", "settings", "tray"]
 
 [tool.pytest.ini_options]
 python_files = ["test_*.py"]

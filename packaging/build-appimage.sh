@@ -11,6 +11,7 @@ uv run pyinstaller --onedir --name chamelshot \
   --hidden-import editor \
   --hidden-import overlay \
   --hidden-import preview \
+  --hidden-import proc \
   --hidden-import settings \
   --hidden-import tray \
   --hidden-import PySide6.QtCore \

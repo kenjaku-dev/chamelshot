@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 
 import config as cfg
 import ipc
+import proc
 from version import VERSION
 
 if TYPE_CHECKING:
@@ -172,6 +173,7 @@ class ChamelShotApp:
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                env=proc.env(),
             )
         except FileNotFoundError:
             pass
@@ -229,6 +231,7 @@ class ChamelShotApp:
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                env=proc.env(),
             )
         except FileNotFoundError:
             pass
@@ -383,6 +386,14 @@ class ChamelShotApp:
         self._capturing = False
         QMessageBox.critical(None, "Error", f"Capture failed: {error}")
 
+    def _on_selector_error(self, message):
+        self._capturing = False
+        QMessageBox.warning(None, "Window capture", message)
+
+    def _on_selector_pixmap(self, pixmap):
+        self._capturing = False
+        self._do_capture(pixmap)
+
     def _do_delayed_capture(self, delay, capture_fn):
         if delay > 0:
             self._capturing = True
@@ -418,6 +429,8 @@ class ChamelShotApp:
         elif mode == "window":
             self.selector = WindowSelector()
             self.selector.region_selected.connect(self.on_region_selected)
+            self.selector.pixmap_captured.connect(self._on_selector_pixmap)
+            self.selector.error.connect(self._on_selector_error)
             self.selector.cancelled.connect(self._on_cancel)
             self.selector.show()
         else:
@@ -445,7 +458,28 @@ def check_deps():
         sys.exit(1)
 
 
+_HELP = f"""ChamelShot {VERSION} - screenshot capture tool for Wayland (wlroots)
+
+Usage:
+  chamelshot [options]
+
+Options:
+  -c, --capture          Capture using the configured mode (region/window/fullscreen)
+      --settings         Open the settings dialog
+      --test-tray        Start normally, then pop the tray menu after ~1.5s
+      --open-history     Open the history folder
+      --install-autostart  Install an autostart entry (runs at login)
+      --remove-autostart Remove the autostart entry
+  -v, --version          Print version and exit
+  -h, --help             Show this help and exit
+"""
+
+
 def main():
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(_HELP, end="")
+        return
+
     if "--version" in sys.argv or "-v" in sys.argv:
         print(f"chamelshot {VERSION}")
         return

@@ -4,8 +4,11 @@ import sys
 import proc
 
 
-def _set_frozen(value: bool) -> None:
-    setattr(sys, "frozen", value)
+def _set_frozen(value: object) -> None:
+    if value is None:
+        delattr(sys, "frozen")
+    else:
+        setattr(sys, "frozen", value)
 
 
 def test_non_frozen_keeps_env():

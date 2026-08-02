@@ -21,7 +21,7 @@ def test_frozen_strips_bundle_vars():
         assert "LD_LIBRARY_PATH" not in clean
         assert "LD_PRELOAD" not in clean
     finally:
-        sys.frozen = old_frozen
+        setattr(sys, "frozen", old_frozen)
         if old_ld is None:
             os.environ.pop("LD_LIBRARY_PATH", None)
         else:
@@ -42,7 +42,7 @@ def test_frozen_restores_original():
         clean = proc.env()
         assert clean.get("LD_LIBRARY_PATH") == "/usr/lib:/lib"
     finally:
-        sys.frozen = old_frozen
+        setattr(sys, "frozen", old_frozen)
         if old_ld is None:
             os.environ.pop("LD_LIBRARY_PATH", None)
         else:

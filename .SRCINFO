@@ -1,6 +1,6 @@
 pkgbase = chamelshot
 	pkgdesc = A lightweight screenshot capture tool for Wayland (wlroots)
-	pkgver = 4.1.0
+	pkgver = 4.2.0
 	pkgrel = 1
 	url = https://github.com/kenjaku-dev/chamelshot
 	arch = x86_64
@@ -15,8 +15,8 @@ pkgbase = chamelshot
 	depends = slurp
 	optdepends = wl-clipboard: native Wayland clipboard support
 	conflicts = snapcap-wayland
-	source = https://github.com/kenjaku-dev/chamelshot/archive/v4.1.0.tar.gz
-	source = chamelshot.desktop
+	source = https://github.com/kenjaku-dev/chamelshot/archive/v4.2.0.tar.gz
+	source = packaging/chamelshot.desktop
 	sha256sums = SKIP
 	sha256sums = SKIP
 

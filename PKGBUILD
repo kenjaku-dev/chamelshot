@@ -1,7 +1,7 @@
 # Maintainer: kenjaku-dev <kenjaku.dev@gmail.com>
 
 pkgname=chamelshot
-pkgver=4.1.0
+pkgver=4.2.0
 pkgrel=1
 pkgdesc="A lightweight screenshot capture tool for Wayland (wlroots)"
 arch=('x86_64')
@@ -12,6 +12,7 @@ depends=(
   'grim'
   'python'
   'python-pyside6'
+  'python-pygobject'
   'slurp'
 )
 optdepends=(
@@ -23,7 +24,7 @@ makedepends=(
   'python-wheel'
 )
 source=("$url/archive/v$pkgver.tar.gz"
-        "chamelshot.desktop")
+        "packaging/chamelshot.desktop")
 sha256sums=('SKIP'
             'SKIP')
 

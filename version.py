@@ -6,4 +6,4 @@
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
-VERSION = "4.1.0"
+VERSION = "4.2.0"

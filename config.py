@@ -32,6 +32,8 @@ auto_copy = {general[auto_copy]}
 auto_save = {general[auto_save]}
 # Show desktop notification after copy/save
 notification = {general[notification]}
+# Show a thumbnail preview in the notification
+notification_preview = {general[notification_preview]}
 
 [save]
 # Directory where auto-saved screenshots go
@@ -88,6 +90,7 @@ DEFAULTS = {
     "general.auto_copy": True,
     "general.auto_save": False,
     "general.notification": True,
+    "general.notification_preview": True,
     "save.directory": str(Path.home() / "Pictures" / "Screenshots"),
     "save.filename_format": "chamelshot_%Y%m%d_%H%M%S.png",
     "save.format": "PNG",

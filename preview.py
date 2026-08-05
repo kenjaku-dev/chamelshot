@@ -58,6 +58,15 @@ def _history_add(saved_path):
         old.unlink(missing_ok=True)
 
 
+def _notify_args(message: str, image: str | None = None, preview: bool = True) -> list[str]:
+    """Build the notify-send argv; `-i <image>` shows a thumbnail when preview is on."""
+    args = ["notify-send"]
+    if preview and image:
+        args.extend(["-i", image])
+    args.extend(["ChamelShot", message])
+    return args
+
+
 class ExportDialog(QDialog):
     def __init__(self, pixmap: QPixmap, config: dict, parent=None):
         super().__init__(parent)
@@ -346,12 +355,12 @@ class PreviewWindow(QWidget):
         if self.cfg.get("general.auto_copy"):
             QTimer.singleShot(50, lambda: self.copy_to_clipboard(closing=False))
 
-    def _notify(self, message: str):
+    def _notify(self, message: str, image: str | None = None):
         if not self.cfg.get("general.notification", True):
             return
         try:
             subprocess.Popen(
-                ["notify-send", "ChamelShot", message],
+                _notify_args(message, image, self.cfg.get("general.notification_preview", True)),
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -408,7 +417,7 @@ class PreviewWindow(QWidget):
             return path
 
         def done(saved_path):
-            self._notify(f"Saved to {saved_path}")
+            self._notify(f"Saved to {saved_path}", image=str(saved_path))
             if close:
                 self.close()
 

@@ -207,6 +207,7 @@ Settings are stored in `~/.config/chamelshot/config.toml` (auto-created with def
 auto_copy = true
 auto_save = false
 notification = true
+notification_preview = true  # show thumbnail in the notification
 
 [save]
 directory = "~/Pictures/Screenshots"

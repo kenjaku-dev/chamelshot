@@ -92,6 +92,9 @@ class SettingsDialog(QDialog):
         self.chk_notification = QCheckBox("Show desktop notification")
         self.chk_notification.setChecked(self.config["general.notification"])
         layout.addWidget(self.chk_notification)
+        self.chk_notification_preview = QCheckBox("Show thumbnail in notification")
+        self.chk_notification_preview.setChecked(self.config["general.notification_preview"])
+        layout.addWidget(self.chk_notification_preview)
 
         self.chk_autostart = QCheckBox("Start daemon on login (autostart)")
         self.chk_autostart.setChecked(cfg.autostart_enabled())
@@ -279,6 +282,7 @@ class SettingsDialog(QDialog):
         self.config["general.auto_copy"] = self.chk_auto_copy.isChecked()
         self.config["general.auto_save"] = self.chk_auto_save.isChecked()
         self.config["general.notification"] = self.chk_notification.isChecked()
+        self.config["general.notification_preview"] = self.chk_notification_preview.isChecked()
         self.config["save.directory"] = self.save_path.text()
         self.config["save.filename_format"] = self.filename_fmt.text()
         self.config["save.format"] = self.img_format.currentText()

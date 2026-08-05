@@ -137,3 +137,58 @@ def test_open_viewer_writes_temp_file_outside_history(tmp_path, monkeypatch):
     assert hist_dir.exists() is False
     popen.assert_called_once()
     assert popen.call_args.args[0][0] == "eog"
+
+
+def test_notify_args_plain():
+    assert prv._notify_args("Copied to clipboard") == ["notify-send", "ChamelShot", "Copied to clipboard"]
+
+
+def test_notify_args_with_image():
+    args = prv._notify_args("Saved to /tmp/x.png", image="/tmp/x.png", preview=True)
+    assert args == ["notify-send", "-i", "/tmp/x.png", "ChamelShot", "Saved to /tmp/x.png"]
+
+
+def test_notify_args_image_skipped_when_preview_off():
+    args = prv._notify_args("Saved to /tmp/x.png", image="/tmp/x.png", preview=False)
+    assert args == ["notify-send", "ChamelShot", "Saved to /tmp/x.png"]
+
+
+def test_notify_sends_image_hint_when_saved(tmp_path, monkeypatch):
+    w = prv.PreviewWindow.__new__(prv.PreviewWindow)
+    w.cfg = {"general.notification": True, "general.notification_preview": True}
+    popen = MagicMock()
+    monkeypatch.setattr(prv.subprocess, "Popen", popen)
+    w._notify("Saved to /tmp/x.png", image="/tmp/x.png")
+    popen.assert_called_once()
+    assert popen.call_args.args[0] == ["notify-send", "-i", "/tmp/x.png", "ChamelShot", "Saved to /tmp/x.png"]
+
+
+def test_notify_skips_image_when_preview_disabled(tmp_path, monkeypatch):
+    w = prv.PreviewWindow.__new__(prv.PreviewWindow)
+    w.cfg = {"general.notification": True, "general.notification_preview": False}
+    popen = MagicMock()
+    monkeypatch.setattr(prv.subprocess, "Popen", popen)
+    w._notify("Saved to /tmp/x.png", image="/tmp/x.png")
+    popen.assert_called_once()
+    assert popen.call_args.args[0] == ["notify-send", "ChamelShot", "Saved to /tmp/x.png"]
+
+
+def test_save_notifies_with_image_hint(tmp_path, monkeypatch):
+    w = _bare_preview({"general.notification": True, "general.notification_preview": True})
+    w._notify = MagicMock()
+    w.close = MagicMock()
+    monkeypatch.setattr(prv, "_history_add", lambda path: None)
+    fake_img = MagicMock()
+    fake_img.save.return_value = True
+    saved_to = {}
+
+    def fake_run_async(receiver, work, on_ok=None, on_error=None):
+        result = work()
+        saved_to["path"] = result
+        if on_ok:
+            on_ok(result)
+
+    monkeypatch.setattr(prv, "run_async", fake_run_async)
+    w._save_async(fake_img, "/tmp/shot.png", "PNG", -1, close=False)
+    assert Path(saved_to["path"]) == Path("/tmp/shot.png")
+    w._notify.assert_called_once_with("Saved to /tmp/shot.png", image="/tmp/shot.png")

@@ -39,6 +39,7 @@ def _app(tmp_path, monkeypatch) -> Any:
     app._capturing = False
     app._from_launcher = False
     app.app = MagicMock()
+    monkeypatch.setattr(main_mod, "list_monitors", lambda: [], raising=False)
     return app
 
 
@@ -72,6 +73,40 @@ def test_menu_capture_items_preserved(tmp_path, monkeypatch):
     assert "  \u229e  Capture Fullscreen" in labels
     assert "  \u2699  Settings" in labels
     assert "  \u2715  Kill" in labels
+
+
+def test_monitor_menu_item_focused_and_monitors(tmp_path, monkeypatch):
+    import main as main_mod
+
+    app = _app(tmp_path, monkeypatch)
+    setattr(main_mod, "list_monitors", lambda: [("DP-2", "Dell", "U2723"), ("HDMI-A-1", "Link", "0x0001")])
+    item = app._monitor_menu_item()
+    assert item["label"] == "  \u25c9  Capture Monitor"
+    children = item["children"]
+    assert children[0]["label"] == "  \u2318  [0] Focused"
+    labels = [c["label"] for c in children[1:]]
+    assert any("DP-2" in label and "Dell" in label and "U2723" in label for label in labels)
+
+
+def test_monitor_menu_item_focused_only_without_monitors(tmp_path, monkeypatch):
+    import main as main_mod
+
+    app = _app(tmp_path, monkeypatch)
+    setattr(main_mod, "list_monitors", lambda: [])
+    item = app._monitor_menu_item()
+    assert [c["label"] for c in item["children"]] == ["  \u2318  [0] Focused"]
+
+
+def test_monitor_menu_focused_callback_captures_focused(tmp_path, monkeypatch):
+    import main as main_mod
+
+    app = _app(tmp_path, monkeypatch)
+    setattr(main_mod, "list_monitors", lambda: [("DP-2", "Dell", "")])
+    app._start_capture_mode = MagicMock()
+    item = app._monitor_menu_item()
+    item["children"][0]["callback"]()
+    assert app.settings["capture.monitor"] == "focused"
+    app._start_capture_mode.assert_called_once_with("monitor")
 
 
 def test_start_capture_hides_launcher(tmp_path, monkeypatch):

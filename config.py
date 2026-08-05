@@ -44,8 +44,11 @@ format = "{save[format]}"
 quality = {save[quality]}
 
 [capture]
-# Capture mode: "region" (select area) or "fullscreen"
+# Capture mode: "region" (select area), "window", "fullscreen", or "monitor"
 mode = "{capture[mode]}"
+# Which monitor for mode "monitor": "focused" or an output name from
+# `niri msg outputs` (e.g. HDMI-A-1)
+monitor = "{capture[monitor]}"
 # Delay in seconds before capture (useful for menus/tooltips)
 delay = {capture[delay]}
 # Include the cursor in the screenshot
@@ -86,6 +89,7 @@ DEFAULTS = {
     "save.format": "PNG",
     "save.quality": -1,
     "capture.mode": "region",
+    "capture.monitor": "focused",
     "capture.delay": 0,
     "capture.include_cursor": False,
     "clipboard.tool": "wl-copy",

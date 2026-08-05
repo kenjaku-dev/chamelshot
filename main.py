@@ -31,7 +31,14 @@ if TYPE_CHECKING:
         QWidget,
     )
 
-    from capture import capture_async, capture_fullscreen, capture_region
+    from capture import (
+        capture_async,
+        capture_fullscreen,
+        capture_monitor,
+        capture_region,
+        focused_monitor,
+        list_monitors,
+    )
     from dispatcher import EventReceiver
     from history import HistoryDialog
     from overlay import CountdownOverlay, RegionSelector, WindowSelector
@@ -81,7 +88,10 @@ def _load_gui():
     g["QWidget"] = qtw.QWidget
     g["capture_async"] = cap.capture_async
     g["capture_fullscreen"] = cap.capture_fullscreen
+    g["capture_monitor"] = cap.capture_monitor
     g["capture_region"] = cap.capture_region
+    g["focused_monitor"] = cap.focused_monitor
+    g["list_monitors"] = cap.list_monitors
     g["EventReceiver"] = disp.EventReceiver
     g["CountdownOverlay"] = ov.CountdownOverlay
     g["RegionSelector"] = ov.RegionSelector
@@ -124,11 +134,12 @@ _LAUNCHER_STYLE = """
 
 
 class ChamelShotApp:
-    def __init__(self, auto_capture=False):
+    def __init__(self, auto_capture=False, auto_monitor=False):
         self.app = QApplication(sys.argv)
         self.app.setApplicationName("ChamelShot")
         self.app.setQuitOnLastWindowClosed(False)
         self.auto_capture = auto_capture
+        self.auto_monitor = auto_monitor
         self.settings = cfg.load()
         self.selector: RegionSelector | WindowSelector | None = None
         self._launcher: QWidget | None = None
@@ -163,6 +174,7 @@ class ChamelShotApp:
             "capture-region": lambda: self._start_capture_mode("region"),
             "capture-window": lambda: self._start_capture_mode("window"),
             "capture-fullscreen": lambda: self._start_capture_mode("fullscreen"),
+            "capture-monitor": lambda: self._start_capture_mode("monitor"),
             "settings": self._open_settings,
             "menu": self._show_tray_menu,
             "open-history": self._open_history_folder,
@@ -201,6 +213,29 @@ class ChamelShotApp:
         except ValueError:
             return path.stem.replace("screenshot_", "").replace("_", ":", 1)[:11]
 
+    def _monitor_menu_item(self) -> dict:
+        """Submenu of monitors: "Focused" + one numbered entry per output.
+
+        Each entry pins capture.monitor then starts monitor capture (one shot,
+        matching the region/window/fullscreen items). Uses list_monitors() so
+        a broken/missing enumerator degrades to just "Focused".
+        """
+
+        def _capture_one(target):
+            self.settings["capture.monitor"] = target
+            self._start_capture_mode("monitor")
+
+        children = [{"label": "  \u2318  [0] Focused", "callback": lambda: _capture_one("focused")}]
+        for idx, (name, make, model) in enumerate(sorted(list_monitors()), start=1):
+            descr = " ".join(part for part in (make, model) if part)
+            children.append(
+                {
+                    "label": f"  \U0001f5b5  [{idx}] {descr} ({name})",
+                    "callback": lambda n=name: _capture_one(n),
+                }
+            )
+        return {"label": "  \u25c9  Capture Monitor", "children": children}
+
     def _build_menu_items(self) -> list:
         items = [
             {"label": "  \u25a6  Show Interface", "callback": self._show_launcher},
@@ -208,6 +243,7 @@ class ChamelShotApp:
             {"label": "  ◻  Capture Region", "callback": lambda: self._start_capture_mode("region")},
             {"label": "  ▭  Capture Window", "callback": lambda: self._start_capture_mode("window")},
             {"label": "  ⊞  Capture Fullscreen", "callback": lambda: self._start_capture_mode("fullscreen")},
+            self._monitor_menu_item(),
             {"type": "separator"},
         ]
 
@@ -376,7 +412,7 @@ class ChamelShotApp:
         if launcher is None:
             launcher = QWidget()
             launcher.setWindowTitle(f"ChamelShot {VERSION}")
-            launcher.setFixedSize(280, 260)
+            launcher.setFixedSize(280, 290)
             launcher.setStyleSheet(_LAUNCHER_STYLE)
 
             layout = QVBoxLayout(launcher)
@@ -403,6 +439,7 @@ class ChamelShotApp:
             layout.addWidget(_make_btn("  ◻  Capture Region", "region"))
             layout.addWidget(_make_btn("  ▭  Capture Window", "window"))
             layout.addWidget(_make_btn("  ⊞  Capture Fullscreen", "fullscreen"))
+            layout.addWidget(_make_btn("  ◉  Capture Monitor", "monitor"))
 
             layout.addSpacing(6)
 
@@ -493,6 +530,25 @@ class ChamelShotApp:
             lambda: capture_region(left, top, right, bottom, delay=0, include_cursor=cursor),
         )
 
+    def _start_monitor_capture(self):
+        target = self.settings.get("capture.monitor", "focused")
+        if target == "focused":
+            output = focused_monitor()
+            if not output:
+                QMessageBox.warning(None, "Monitor capture", "Could not determine the focused output.")
+                return
+        elif target not in {name for name, _, _ in list_monitors()}:
+            QMessageBox.warning(None, "Monitor capture", f"Unknown monitor '{target}'. Pick one from the tray menu.")
+            return
+        else:
+            output = target
+        delay = self.settings.get("capture.delay", 0)
+        cursor = self.settings.get("capture.include_cursor", False)
+        self._do_delayed_capture(
+            delay,
+            lambda: capture_monitor(output, delay=0, include_cursor=cursor),
+        )
+
     def start_capture(self):
         if self._capturing:
             return
@@ -505,6 +561,8 @@ class ChamelShotApp:
                 delay,
                 lambda: capture_fullscreen(delay=0, include_cursor=cursor),
             )
+        elif mode == "monitor":
+            self._start_monitor_capture()
         elif mode == "window":
             self.selector = WindowSelector()
             self.selector.region_selected.connect(self.on_region_selected)
@@ -521,6 +579,8 @@ class ChamelShotApp:
     def run(self, show_launcher=True):
         if self.auto_capture:
             QTimer.singleShot(100, self.start_capture)
+        elif self.auto_monitor:
+            QTimer.singleShot(100, lambda: self._start_capture_mode("monitor"))
         elif show_launcher:
             QTimer.singleShot(0, self._show_launcher)
         return self.app.exec()
@@ -543,7 +603,8 @@ Usage:
   chamelshot [options]
 
 Options:
-  -c, --capture          Capture using the configured mode (region/window/fullscreen)
+  -c, --capture          Capture using the configured mode (region/window/fullscreen/monitor)
+      --capture-monitor   Capture the configured/focused monitor
       --settings         Open the settings dialog
       --test-tray        Start normally, then pop the tray menu after ~1.5s
       --open-history     Open the history folder
@@ -581,6 +642,8 @@ def main():
     cmd = "show-launcher"
     if "--capture" in sys.argv or "-c" in sys.argv:
         cmd = "capture"
+    elif "--capture-monitor" in sys.argv:
+        cmd = "capture-monitor"
     elif "--settings" in sys.argv:
         cmd = "settings"
     elif "--test-tray" in sys.argv:
@@ -605,9 +668,10 @@ def main():
         return
 
     auto_capture = "--capture" in sys.argv or "-c" in sys.argv
+    auto_monitor = "--capture-monitor" in sys.argv
     _load_gui()
     try:
-        app = ChamelShotApp(auto_capture=auto_capture)
+        app = ChamelShotApp(auto_capture=auto_capture, auto_monitor=auto_monitor)
     except ipc.AlreadyRunningError:
         print("chamelshot: another instance started concurrently; exiting")
         return

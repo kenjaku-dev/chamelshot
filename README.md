@@ -94,6 +94,7 @@ uv run python main.py
 chamelshot                          # show launcher, stays in tray after capture
 chamelshot -c                       # capture now (forwards to running daemon)
 chamelshot --capture                # same as -c
+chamelshot --capture-monitor        # capture the configured/focused monitor
 chamelshot --settings               # open settings dialog directly
 chamelshot --test-tray              # pop the tray menu (diagnose tray issues)
 chamelshot --open-history           # open the screenshot history folder
@@ -136,6 +137,7 @@ bind = CTRL, Print, exec, chamelshot --settings
 - **Region** — drag to select an area; click to snap to window/monitor boundaries
 - **Window** — pick from visible windows via `swaymsg`/`hyprctl`, then snap-select with `slurp -r`
 - **Fullscreen** — capture the entire output with one click
+- **Monitor** — pick a specific monitor (or the focused one) for multi-output setups
 - **Delay** — configurable countdown overlay (0-60s) for menus, tooltips, or hover states
 
 ### Annotation Tools (9 tools)
@@ -169,7 +171,7 @@ bind = CTRL, Print, exec, chamelshot --settings
 ### Single Instance & IPC
 - First launch becomes the daemon (Unix socket at `~/.cache/chamelshot/daemon.sock`)
 - Later invocations forward the command to the daemon and exit
-- Commands: `-c`/`--capture`, `--settings`, `--test-tray`, `--open-history`
+- Commands: `-c`/`--capture`, `--capture-monitor`, `--settings`, `--test-tray`, `--open-history`
 
 ### Screenshot History
 - Automatic save to `~/.cache/chamelshot/history/` on every capture
@@ -208,7 +210,8 @@ format = "PNG"
 quality = -1
 
 [capture]
-mode = "region"       # region | window | fullscreen
+mode = "region"       # region | window | fullscreen | monitor
+monitor = "focused"   # focused | <output name> (e.g. HDMI-A-1)
 delay = 0             # seconds (0-60)
 include_cursor = false
 

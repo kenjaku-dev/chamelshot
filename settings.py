@@ -169,14 +169,24 @@ class SettingsDialog(QDialog):
 
         return w
 
+    def _on_mode_changed(self, mode):
+        self.capture_monitor.setEnabled(mode == "monitor")
+
     def _capture_tab(self):
         w = QWidget()
         layout = QFormLayout(w)
 
         self.capture_mode = QComboBox()
-        self.capture_mode.addItems(["region", "window", "fullscreen"])
+        self.capture_mode.addItems(["region", "window", "fullscreen", "monitor"])
         self.capture_mode.setCurrentText(self.config["capture.mode"])
         layout.addRow("Mode:", self.capture_mode)
+        self.capture_mode.currentTextChanged.connect(self._on_mode_changed)
+
+        self.capture_monitor = QLineEdit()
+        self.capture_monitor.setPlaceholderText("focused or output name (e.g. HDMI-A-1)")
+        self.capture_monitor.setText(self.config["capture.monitor"])
+        self.capture_monitor.setEnabled(self.config["capture.mode"] == "monitor")
+        layout.addRow("Monitor:", self.capture_monitor)
 
         self.delay = QSpinBox()
         self.delay.setRange(0, 60)
@@ -251,6 +261,7 @@ class SettingsDialog(QDialog):
         self.config["save.format"] = self.img_format.currentText()
         self.config["save.quality"] = self.quality.value()
         self.config["capture.mode"] = self.capture_mode.currentText()
+        self.config["capture.monitor"] = self.capture_monitor.text().strip()
         self.config["capture.delay"] = self.delay.value()
         self.config["capture.include_cursor"] = self.include_cursor.isChecked()
         self.config["clipboard.tool"] = self.copy_tool.currentText()

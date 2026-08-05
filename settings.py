@@ -161,6 +161,15 @@ class SettingsDialog(QDialog):
         self.img_format.setCurrentText(self.config["save.format"])
         layout.addRow("Image format:", self.img_format)
 
+        self.save_warning = QLabel()
+        self.save_warning.setWordWrap(True)
+        self.save_warning.setStyleSheet("color: #d49e5b;")
+        layout.addRow(self.save_warning)
+        self.filename_fmt.textChanged.connect(self._refresh_save_warning)
+        self.img_format.currentTextChanged.connect(self._refresh_save_warning)
+        self.save_path.textChanged.connect(self._refresh_save_warning)
+        self._refresh_save_warning()
+
         self.quality = QSpinBox()
         self.quality.setRange(-1, 100)
         self.quality.setValue(self.config["save.quality"])
@@ -251,6 +260,16 @@ class SettingsDialog(QDialog):
         path = QFileDialog.getExistingDirectory(self, "Select save directory")
         if path:
             self.save_path.setText(path)
+
+    def _refresh_save_warning(self):
+        snapshot = {
+            "save.directory": self.save_path.text(),
+            "save.filename_format": self.filename_fmt.text(),
+            "save.format": self.img_format.currentText(),
+        }
+        warnings = cfg.validate_save_settings(snapshot)
+        self.save_warning.setText("\n".join(warnings))
+        self.save_warning.setVisible(bool(warnings))
 
     def _save(self):
         self.config["general.auto_copy"] = self.chk_auto_copy.isChecked()

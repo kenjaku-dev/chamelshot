@@ -149,3 +149,48 @@ def test_generate_save_path_uses_strftime(monkeypatch, tmp_path):
     monkeypatch.setattr(dt_mod, "datetime", type("FakeDatetime", (), {"now": staticmethod(fake_now)}))
     result = cfg.generate_save_path({"save.directory": str(save_dir), "save.filename_format": "cap_%Y%m%d.png"})
     assert result == os.path.join(str(save_dir), "cap_20260729.png")
+
+
+def test_resolve_extension_returns_lowercase():
+    assert cfg.resolve_extension("shot_%Y%m%d.PNG") == "png"
+    assert cfg.resolve_extension("cap_%H.jpg") == "jpg"
+
+
+def test_resolve_extension_none_when_no_dot():
+    assert cfg.resolve_extension("shot_%Y%m%d") is None
+
+
+def test_validate_save_settings_ok(tmp_path):
+    config = {
+        "save.directory": str(tmp_path),
+        "save.filename_format": "shot_%Y%m%d.png",
+        "save.format": "PNG",
+    }
+    assert cfg.validate_save_settings(config) == []
+
+
+def test_validate_save_settings_extension_mismatch(tmp_path):
+    config = {
+        "save.directory": str(tmp_path),
+        "save.filename_format": "shot_%Y%m%d.jpg",
+        "save.format": "PNG",
+    }
+    warnings = cfg.validate_save_settings(config)
+    assert len(warnings) == 1
+    assert ".png" in warnings[0]
+
+
+def test_validate_save_settings_jpeg_accepts_jpg_and_jpeg(tmp_path):
+    for fmt in ("shot_%Y.jpg", "shot_%Y.jpeg"):
+        config = {"save.directory": str(tmp_path), "save.filename_format": fmt, "save.format": "JPEG"}
+        assert cfg.validate_save_settings(config) == []
+
+
+def test_validate_save_settings_unwritable_dir(tmp_path, monkeypatch):
+    config = {
+        "save.directory": str(tmp_path / "missing"),
+        "save.filename_format": "shot_%Y.png",
+        "save.format": "PNG",
+    }
+    warnings = cfg.validate_save_settings(config)
+    assert any("not writable" in w for w in warnings)

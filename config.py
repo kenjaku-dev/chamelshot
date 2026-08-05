@@ -233,3 +233,37 @@ def generate_save_path(config: dict) -> str:
     os.makedirs(save_dir, exist_ok=True)
     filename = datetime.datetime.now().strftime(fmt)
     return os.path.join(save_dir, filename)
+
+
+_REFERENCE_DT = datetime.datetime(2000, 1, 1, 0, 0, 0)
+
+# Expected filename extension per save.format value (JPEG accepts jpg/jpeg).
+FORMAT_EXTENSIONS = {
+    "PNG": ("png",),
+    "JPEG": ("jpg", "jpeg"),
+    "WebP": ("webp",),
+    "BMP": ("bmp",),
+}
+
+
+def resolve_extension(filename_format: str) -> str | None:
+    """Extension a strftime filename format resolves to, lowercased, or None."""
+    name = _REFERENCE_DT.strftime(filename_format)
+    ext = os.path.splitext(name)[1]
+    return ext.lstrip(".").lower() or None
+
+
+def validate_save_settings(config: dict) -> list[str]:
+    """Non-blocking warnings about save settings; empty list = OK."""
+    warnings: list[str] = []
+    fmt = config.get("save.filename_format", DEFAULTS["save.filename_format"])
+    img_format = config.get("save.format", DEFAULTS["save.format"])
+    expected = FORMAT_EXTENSIONS.get(img_format)
+    ext = resolve_extension(fmt)
+    if expected and ext and ext not in expected:
+        want = "/".join(expected)
+        warnings.append(f'Filename format resolves to ".{ext}" but save format is {img_format} (expected ".{want}")')
+    save_dir = config.get("save.directory", DEFAULTS["save.directory"])
+    if not os.path.isdir(save_dir) or not os.access(save_dir, os.W_OK):
+        warnings.append(f"Save directory is not writable: {save_dir}")
+    return warnings

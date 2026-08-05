@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from dispatcher import EventReceiver
     from history import HistoryDialog
     from overlay import CountdownOverlay, RegionSelector, WindowSelector
+    from pin import PinStore
     from preview import PreviewWindow
     from settings import SettingsDialog
     from tray import ChamelShotTray
@@ -65,6 +66,7 @@ def _load_gui():
     import dispatcher as disp
     import history as hst
     import overlay as ov
+    import pin as pin
     import preview as prv
     import settings as stg
     import tray as tr
@@ -99,6 +101,8 @@ def _load_gui():
     g["PreviewWindow"] = prv.PreviewWindow
     g["SettingsDialog"] = stg.SettingsDialog
     g["HistoryDialog"] = hst.HistoryDialog
+    g["PinStore"] = pin.PinStore
+    g["PinWindow"] = pin.PinWindow
     g["ChamelShotTray"] = tr.ChamelShotTray
     _loaded_gui = True
 
@@ -149,8 +153,10 @@ class ChamelShotApp:
         self._from_launcher = False
         self._menu: QMenu | None = None
         self._receiver = EventReceiver()
+        self.pin_store = PinStore()
         self._setup_ipc()
         self._setup_tray()
+        self.app.aboutToQuit.connect(self._close_all_pins)
 
     def _setup_ipc(self):
         ipc.clean_stale_socket(cfg.IPC_SOCKET_PATH)
@@ -179,12 +185,22 @@ class ChamelShotApp:
             "menu": self._show_tray_menu,
             "open-history": self._open_history_folder,
             "open-history-ui": self._open_history_ui,
+            "pin": self._pin_last_preview,
             "show-launcher": self._show_launcher,
             "quit": self.app.quit,
         }
         fn = actions.get(cmd)
         if fn:
             fn()
+
+    def _pin_last_preview(self):
+        preview = getattr(self, "preview", None)
+        if preview is not None and preview.isVisible():
+            preview._pin()
+
+    def _close_all_pins(self):
+        for window in self.pin_store.close_all():
+            window.close()
 
     def _open_history_folder(self, *_args):
         cfg.HISTORY_DIR.mkdir(parents=True, exist_ok=True)
@@ -300,8 +316,13 @@ class ChamelShotApp:
             config=self.settings,
             on_new_capture=self.start_capture,
             source_path=str(path),
+            pin_store=self.pin_store,
+            on_edit_pin=self._reopen_for_edit_pixmap,
         )
         self.preview.show()
+
+    def _reopen_for_edit_pixmap(self, pixmap: QPixmap):
+        self._do_capture(pixmap)
 
     def _copy_history_file(self, path: Path):
         pm = QPixmap(str(path))
@@ -481,6 +502,8 @@ class ChamelShotApp:
             pixmap,
             config=self.settings,
             on_new_capture=self.start_capture,
+            pin_store=self.pin_store,
+            on_edit_pin=self._reopen_for_edit_pixmap,
         )
         self.preview.show()
 
@@ -605,6 +628,7 @@ Usage:
 Options:
   -c, --capture          Capture using the configured mode (region/window/fullscreen/monitor)
       --capture-monitor   Capture the configured/focused monitor
+      --pin              Pin the current screenshot on screen
       --settings         Open the settings dialog
       --test-tray        Start normally, then pop the tray menu after ~1.5s
       --open-history     Open the history folder
@@ -644,6 +668,8 @@ def main():
         cmd = "capture"
     elif "--capture-monitor" in sys.argv:
         cmd = "capture-monitor"
+    elif "--pin" in sys.argv:
+        cmd = "pin"
     elif "--settings" in sys.argv:
         cmd = "settings"
     elif "--test-tray" in sys.argv:

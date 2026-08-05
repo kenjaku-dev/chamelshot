@@ -95,6 +95,7 @@ chamelshot                          # show launcher, stays in tray after capture
 chamelshot -c                       # capture now (forwards to running daemon)
 chamelshot --capture                # same as -c
 chamelshot --capture-monitor        # capture the configured/focused monitor
+chamelshot --pin                    # pin the current screenshot on screen
 chamelshot --settings               # open settings dialog directly
 chamelshot --test-tray              # pop the tray menu (diagnose tray issues)
 chamelshot --open-history           # open the screenshot history folder
@@ -157,8 +158,9 @@ bind = CTRL, Print, exec, chamelshot --settings
 
 ### Preview Window
 - View, annotate, save, or copy to clipboard
+- Pin a screenshot on screen as a frameless floating reference
 - Re-capture without leaving the preview
-- Keyboard shortcuts for save/copy/close (configurable in settings)
+- Keyboard shortcuts for save/copy/close/pin (configurable in settings)
 - Auto-save and auto-copy on capture (configurable)
 
 ### System Tray
@@ -171,7 +173,7 @@ bind = CTRL, Print, exec, chamelshot --settings
 ### Single Instance & IPC
 - First launch becomes the daemon (Unix socket at `~/.cache/chamelshot/daemon.sock`)
 - Later invocations forward the command to the daemon and exit
-- Commands: `-c`/`--capture`, `--capture-monitor`, `--settings`, `--test-tray`, `--open-history`
+- Commands: `-c`/`--capture`, `--capture-monitor`, `--pin`, `--settings`, `--test-tray`, `--open-history`
 
 ### Screenshot History
 - Automatic save to `~/.cache/chamelshot/history/` on every capture
@@ -223,6 +225,7 @@ save = "Ctrl+S"
 copy = "Ctrl+C"
 new_capture = "Ctrl+N"
 close = "Escape"
+pin = "Ctrl+P"
 
 [preview]
 stay_on_top = true

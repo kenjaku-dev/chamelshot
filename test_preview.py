@@ -56,6 +56,19 @@ def test_save_dialog_filter_matches_configured_format():
     assert mock_dialog.call_args.args[3] == "WebP (*.webp)"
 
 
+def test_pin_calls_on_pin_with_current_pixmap():
+    w = prv.PreviewWindow.__new__(prv.PreviewWindow)
+    w.cfg = {}
+    w.pin_store = None
+    w.on_pin = None
+    w._current_pixmap = MagicMock()
+    w._current_pixmap.return_value = "pixmap"
+    received = {}
+    w.on_pin = lambda pm: received.update(pm=pm)
+    w._pin()
+    assert received == {"pm": "pixmap"}
+
+
 def test_open_viewer_writes_temp_file_outside_history(tmp_path, monkeypatch):
     hist_dir = tmp_path / "history"
     monkeypatch.setattr(prv.cfg, "HISTORY_DIR", hist_dir)

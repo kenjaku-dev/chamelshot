@@ -165,13 +165,23 @@ ACTION_STYLE = """
 
 class PreviewWindow(QWidget):
     def __init__(
-        self, pixmap: QPixmap, config: dict | None = None, on_new_capture=None, source_path: str | None = None
+        self,
+        pixmap: QPixmap,
+        config: dict | None = None,
+        on_new_capture=None,
+        source_path: str | None = None,
+        pin_store=None,
+        on_pin=None,
+        on_edit_pin=None,
     ):
         super().__init__()
         self.pixmap = pixmap
         self.cfg = config or cfg.load()
         self.on_new_capture = on_new_capture
         self.source_path = source_path  # re-emit session: save()/quick-save target this file
+        self.on_pin = on_pin  # called with _current_pixmap(); None uses internal store
+        self.pin_store = pin_store  # PinStore used when on_pin is None (unit+tests)
+        self.on_edit_pin = on_edit_pin  # opened by the pin's "Re-edit" action
         self.setWindowTitle("ChamelShot - Screenshot")
 
         if self.cfg.get("preview.stay_on_top", True):
@@ -237,6 +247,12 @@ class PreviewWindow(QWidget):
         self.btn_open.clicked.connect(self._open_viewer)
         ol_layout.addWidget(self.btn_open)
 
+        self.btn_pin = QPushButton("Pin")
+        self.btn_pin.setToolTip("Pin this image on screen as a reference")
+        self.btn_pin.setStyleSheet(ACTION_STYLE)
+        self.btn_pin.clicked.connect(self._pin)
+        ol_layout.addWidget(self.btn_pin)
+
         pc_layout.addWidget(self.action_overlay)
 
         self.stack.addWidget(self.preview_container)
@@ -281,11 +297,24 @@ class PreviewWindow(QWidget):
         self._bind_shortcuts()
         self._apply_auto_actions()
 
+    def _pin(self):
+        from pin import PinStore, PinWindow
+
+        pixmap = self._current_pixmap()
+        if self.on_pin:
+            self.on_pin(pixmap)
+            return
+        store = self.pin_store or PinStore()
+        self.pin_store = store
+        window = PinWindow(pixmap, store, on_reedit=self.on_edit_pin)
+        window.show()
+
     def _bind_shortcuts(self):
         mapping = {
             "save": self.save,
             "copy": self.copy_to_clipboard,
             "close": self.close,
+            "pin": self._pin,
         }
         if self.on_new_capture:
             mapping["new_capture"] = self.new_capture

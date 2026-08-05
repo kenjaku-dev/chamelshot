@@ -226,6 +226,8 @@ class SettingsDialog(QDialog):
         layout.addRow("New Capture:", self.sc_new)
         self.sc_close = QLineEdit(self.config["shortcuts.close"])
         layout.addRow("Close:", self.sc_close)
+        self.sc_pin = QLineEdit(self.config["shortcuts.pin"])
+        layout.addRow("Pin:", self.sc_pin)
 
         layout.addRow("", QLabel("Format: Ctrl+S, Ctrl+Shift+A, Escape, etc."))
 
@@ -288,6 +290,7 @@ class SettingsDialog(QDialog):
         self.config["shortcuts.copy"] = self.sc_copy.text()
         self.config["shortcuts.new_capture"] = self.sc_new.text()
         self.config["shortcuts.close"] = self.sc_close.text()
+        self.config["shortcuts.pin"] = self.sc_pin.text()
         self.config["preview.max_width"] = self.max_width.value()
         self.config["preview.window_width"] = self.win_w.value()
         self.config["preview.window_height"] = self.win_h.value()

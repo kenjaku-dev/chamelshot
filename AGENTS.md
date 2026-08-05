@@ -7,7 +7,7 @@ dbusmenu; `grim`/`slurp` subprocesses for capture. Python 3.14 only.
 ## Commands (all via uv)
 
 ```sh
-dbus-run-session -- uv run pytest -q    # test suite (81 tests; needs a dbus
+dbus-run-session -- uv run pytest -q    # test suite (85 tests; needs a dbus
                                         # session for tray tests)
 uv run pytest -q test_capture.py test_config.py   # subset, no bus needed
 uv run ruff check .                     # lint
@@ -25,6 +25,7 @@ packaging/build-appimage.sh 4.2.0       # builds AppImage into dist/
 | `tray.py` | SNI tray + dbusmenu (Gio/GVariant). **Wire-format-exact — see BUG_REPORT.md #29–#31 for every gotcha found** |
 | `capture.py` | grim subprocess calls + QPixmap decoding + async threading |
 | `editor.py` | pixel editor / annotations, save + copy-to-clipboard |
+| `pin.py` | pinned screenshots: Qt-free `PinStore` lifecycle model + frameless `PinWindow` |
 | `overlay.py`, `preview.py` | fullscreen selection overlay (slurp + swaymsg/hyprctl boxes; niri uses `niri msg action screenshot-window`), preview window |
 | `settings.py` | settings dialog UI (reads/writes `config.py` TOML store) |
 | `config.py` | validated defaults (dataclass + loader) |

@@ -192,6 +192,19 @@ def _props_a_sv(props: dict) -> GLib.Variant:
     return GLib.Variant("a{sv}", _props_variants(props))
 
 
+def _fingerprint_items(items: list) -> tuple:
+    """Recursive fingerprint of a menu item list (label/type/callback + children)."""
+    return tuple(
+        (
+            i.get("type", "standard"),
+            i.get("label", ""),
+            i.get("callback") is not None,
+            _fingerprint_items(i.get("children") or []),
+        )
+        for i in items
+    )
+
+
 class DbusMenu:
     """com.canonical.dbusmenu export (spec-exact) so the SNI host (waybar,
     Plasma, gnome-shell, ...) renders our context menu natively.
@@ -215,8 +228,11 @@ class DbusMenu:
     once a QCoreApplication exists (verified empirically).
 
     Item entries produced by ``builder`` are dicts:
-      {"label": str, "callback": callable | None, "type": "standard"|"separator"}
+      {"label": str, "callback": callable | None, "type": "standard"|"separator",
+       "children": [same-typed dicts] | None}
     A missing/None callback yields a disabled item (e.g. "No screenshots").
+    Items with children are rendered as submenus: ``children-display: submenu``
+    and GetLayout returns their nested children under their own parent id.
     """
 
     def __init__(self, connection: Gio.DBusConnection, path: str, builder):
@@ -225,6 +241,8 @@ class DbusMenu:
         self._builder = builder
         self._items: list[dict] = []
         self._by_id: dict[int, dict] = {}
+        self._children_of: dict[int, list[int]] = {}
+        self._root_children: list[int] = []
         self._revision = 1
         self._fingerprint = self._fingerprint_of(builder())
         node = Gio.DBusNodeInfo.new_for_xml(DBUSMENU_XML)
@@ -234,10 +252,34 @@ class DbusMenu:
     # ------------------------------------------------------------ internals
 
     def _refresh(self):
-        """Rebuild item list from the builder callback, assign ids, bump revision."""
+        """Rebuild the item id tree from the builder callback, bump revision.
+
+        Ids are assigned depth-first (pre-order): root items keep ids 1..N
+        in their list order, then each submenu's children follow their
+        parent's id. test_tray.py's flat layout therefore keeps root ids
+        1..N unchanged while nested additions live deep in the tree.
+        """
         items = self._builder()
-        self._items = [{"type": "separator"} if i.get("type") == "separator" else i for i in items]
-        self._by_id = {idx: it for idx, it in enumerate(self._items, start=1)}
+        self._by_id = {}
+        self._children_of = {}
+        self._root_children = []
+        counter = 0
+
+        def walk(list_items, out):
+            nonlocal counter
+            for it in list_items:
+                it = {"type": "separator"} if it.get("type") == "separator" else it
+                counter += 1
+                self._by_id[counter] = it
+                out.append(counter)
+                kids = it.get("children")
+                if kids:
+                    parent = counter
+                    self._children_of[parent] = walk(kids, [])
+            return out
+
+        walk(items, self._root_children)
+        self._items = [self._by_id[i] for i in self._root_children]
         self._revision += 1
 
     def _layout_props(self, item_id: int) -> dict:
@@ -252,19 +294,35 @@ class DbusMenu:
             return {}
         if item.get("type") == "separator":
             return {"type": ("s", "separator"), "visible": ("b", True)}
-        return {
+        is_submenu = item_id in self._children_of
+        props = {
             "label": ("s", item.get("label", "")),
-            "enabled": ("b", item.get("callback") is not None),
+            "enabled": ("b", True if is_submenu else item.get("callback") is not None),
             "visible": ("b", True),
             "type": ("s", "standard"),
             "label-display": ("s", "text"),
         }
+        if is_submenu:
+            props["children-display"] = ("s", "submenu")
+        return props
 
-    def _child_variant(self, item_id: int) -> GLib.Variant:
-        """One GetLayout child: a variant holding a ``(ia{sv}av)`` struct."""
+    def _children_ids(self, item_id: int) -> list[int]:
+        """Top-level ids for the root parent, nested ids for a submenu parent."""
+        if item_id == 0:
+            return self._root_children
+        return self._children_of.get(item_id, [])
+
+    def _child_variant(self, item_id: int, depth: int = -1) -> GLib.Variant:
+        """One GetLayout child: a variant holding a ``(ia{sv}av)`` struct.
+
+        ``depth`` recurses into nested children (-1 = all, 0 = none).
+        """
+        children = []
+        if depth != 0:
+            children = [self._child_variant(c, depth - 1 if depth > 0 else depth) for c in self._children_ids(item_id)]
         return GLib.Variant(
             "(ia{sv}av)",
-            (item_id, _props_variants(self._layout_props(item_id)), []),
+            (item_id, _props_variants(self._layout_props(item_id)), children),
         )
 
     # ------------------------------------------------------------- dispatch
@@ -318,8 +376,11 @@ class DbusMenu:
     def _m_GetLayout(self, parameters, invocation):  # noqa: N802
         parent_id, recursion_depth, _names = parameters.unpack()
         parent_id, recursion_depth = int(parent_id), int(recursion_depth)
-        if parent_id == 0 and recursion_depth != 0:
-            children = [self._child_variant(i) for i in self._by_id]
+        if recursion_depth != 0:
+            children = [
+                self._child_variant(c, recursion_depth - 1 if recursion_depth > 0 else recursion_depth)
+                for c in self._children_ids(parent_id)
+            ]
         else:
             children = []
         layout = (
@@ -394,7 +455,7 @@ class DbusMenu:
 
     @staticmethod
     def _fingerprint_of(items: list) -> tuple:
-        return tuple((i.get("type", "standard"), i.get("label", ""), i.get("callback") is not None) for i in items)
+        return _fingerprint_items(items)
 
     def _handle_event(self, item_id: int, event_id: str):
         if event_id != "clicked":

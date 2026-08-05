@@ -16,6 +16,7 @@ from typing import Any, cast
 from unittest.mock import MagicMock
 
 import config as cfg
+import main as main_mod
 from main import ChamelShotApp
 
 
@@ -35,6 +36,8 @@ def _app(tmp_path, monkeypatch) -> Any:
     app.start_capture = MagicMock()
     app._open_history_folder = MagicMock()
     app._open_settings = MagicMock()
+    app._capturing = False
+    app._from_launcher = False
     app.app = MagicMock()
     return app
 
@@ -92,3 +95,95 @@ def test_start_from_launcher_delegates(tmp_path, monkeypatch):
     app._start_from_launcher("window")
     assert app.settings["capture.mode"] == "window"
     app.start_capture.assert_called_once()
+
+
+def test_cancel_from_keybind_does_not_show_launcher(tmp_path, monkeypatch):
+    app = _app(tmp_path, monkeypatch)
+    app._from_launcher = False
+    app._show_launcher = MagicMock()
+    fake_timer = MagicMock()
+    monkeypatch.setattr(main_mod, "QTimer", fake_timer, raising=False)
+    app._on_cancel()
+    fake_timer.singleShot.assert_not_called()
+    app._show_launcher.assert_not_called()
+
+
+def test_cancel_from_launcher_restores_launcher_once(tmp_path, monkeypatch):
+    app = _app(tmp_path, monkeypatch)
+    app._from_launcher = True
+    app._show_launcher = MagicMock()
+    monkeypatch.setattr(main_mod, "QTimer", MagicMock(), raising=False)
+    app._on_cancel()
+    main_mod.QTimer.singleShot.assert_called_once()
+    main_mod.QTimer.singleShot.call_args.args[1]()
+    app._show_launcher.assert_called_once()
+    assert app._from_launcher is False
+
+
+def test_start_capture_resets_launcher_origin(tmp_path, monkeypatch):
+    app = _app(tmp_path, monkeypatch)
+    app._from_launcher = True
+    app._capturing = False
+    app.settings["capture.mode"] = "region"
+    selector = MagicMock()
+    selector_cls = MagicMock(return_value=selector)
+    monkeypatch.setattr(main_mod, "RegionSelector", selector_cls, raising=False)
+    app.start_capture = ChamelShotApp.start_capture.__get__(app)
+    app.start_capture()
+    assert app._from_launcher is False
+    selector_cls.assert_called_once()
+
+
+def test_start_from_launcher_marks_origin(tmp_path, monkeypatch):
+    app = _app(tmp_path, monkeypatch)
+    launcher = _FakeLauncher()
+    app._launcher = launcher
+    app.settings["capture.mode"] = "region"
+    selector = MagicMock()
+    selector_cls = MagicMock(return_value=selector)
+    monkeypatch.setattr(main_mod, "RegionSelector", selector_cls, raising=False)
+    app.start_capture = ChamelShotApp.start_capture.__get__(app)
+    app._start_from_launcher("region")
+    assert app.settings["capture.mode"] == "region"
+    assert launcher.hidden
+    assert app._from_launcher is True
+
+
+def _write_history_shots(dirpath, n):
+    for i in range(n):
+        p = dirpath / f"screenshot_20260805_12000{i}_000.png"
+        p.write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 8)
+
+
+def test_recent_submenu_has_edit_actions(tmp_path, monkeypatch):
+    _write_history_shots(tmp_path, 2)
+    app = _app(tmp_path, monkeypatch)
+    items = app._build_menu_items()
+    recents = [i for i in items if "Recent" in i.get("label", "")]
+    assert len(recents) == 1
+    children = recents[0].get("children", [])
+    assert len(children) == 2
+    child = children[0]
+    assert "[1]" in child["label"]
+    actions = child.get("children", [])
+    labels = [a["label"].strip() for a in actions]
+    assert labels == ["✎  Re-edit", "🗂  Open", "⧉  Copy"]
+    assert all(a["callback"] for a in actions)
+
+
+def test_recent_submenu_no_shots(tmp_path, monkeypatch):
+    app = _app(tmp_path, monkeypatch)
+    items = app._build_menu_items()
+    recents = [i for i in items if "Recent" in i.get("label", "")]
+    children = recents[0].get("children", [])
+    assert children[0]["label"].strip() == "—  No screenshots"
+    assert children[0].get("callback") is None
+
+
+def test_history_tray_item_registered(tmp_path, monkeypatch):
+    app = _app(tmp_path, monkeypatch)
+    app._open_history_ui = MagicMock()
+    items = app._build_menu_items()
+    history_items = [i for i in items if "History Browser" in i.get("label", "")]
+    assert len(history_items) == 1
+    history_items[0]["callback"]()

@@ -94,6 +94,20 @@ def test_load_fallback_on_corrupt_toml(monkeypatch, tmp_path):
     assert result == cfg.DEFAULTS
 
 
+def test_load_corrupt_config_warns_once_and_keeps_file(monkeypatch, tmp_path, capsys):
+    toml_path = tmp_path / "config.toml"
+    corrupt = 'save.directory = "unterminated'
+    toml_path.write_text(corrupt)
+    monkeypatch.setattr(cfg, "CONFIG_PATH", toml_path)
+    monkeypatch.setattr(cfg, "_warned_corrupt_config", False)
+    assert cfg.load() == cfg.DEFAULTS
+    assert cfg.load() == cfg.DEFAULTS
+    captured = capsys.readouterr()
+    assert "ignored" in captured.err
+    assert captured.err.count("ignored") == 1
+    assert toml_path.read_text() == corrupt
+
+
 def test_save_writes_and_reloads(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(cfg, "CONFIG_PATH", tmp_path / "config.toml")

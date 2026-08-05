@@ -9,6 +9,7 @@
 import datetime
 import os
 import re
+import sys
 import tomllib
 from pathlib import Path
 
@@ -122,6 +123,9 @@ def _unflatten(data: dict) -> dict:
     return result
 
 
+_warned_corrupt_config = False
+
+
 def load() -> dict:
     if not CONFIG_PATH.exists():
         _write_default()
@@ -133,6 +137,15 @@ def load() -> dict:
         merged = dict(DEFAULTS)
         merged.update(flat)
         return merged
+    except tomllib.TOMLDecodeError:
+        global _warned_corrupt_config
+        if not _warned_corrupt_config:
+            _warned_corrupt_config = True
+            print(
+                f"chamelshot: warning: {CONFIG_PATH} could not be parsed and was ignored; using default settings",
+                file=sys.stderr,
+            )
+        return dict(DEFAULTS)
     except Exception:
         return dict(DEFAULTS)
 

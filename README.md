@@ -136,7 +136,7 @@ bind = CTRL, Print, exec, chamelshot --settings
 - **Region** — drag to select an area; click to snap to window/monitor boundaries
 - **Window** — pick from visible windows via `swaymsg`/`hyprctl`, then snap-select with `slurp -r`
 - **Fullscreen** — capture the entire output with one click
-- **Delay** — configurable countdown overlay (1-30s) for menus, tooltips, or hover states
+- **Delay** — configurable countdown overlay (0-60s) for menus, tooltips, or hover states
 
 ### Annotation Tools (9 tools)
 | Tool | Description |
@@ -144,7 +144,7 @@ bind = CTRL, Print, exec, chamelshot --settings
 | Pen | Freehand drawing |
 | Highlighter | Semi-transparent marker (5× width, alpha 80) |
 | Arrow | Directional pointer with filled head |
-| Rectangle | Outlined box |
+| Rect | Outlined box |
 | Oval | Outlined ellipse |
 | Line | Straight line |
 | Text | Click-to-type label (custom font size) |
@@ -212,20 +212,23 @@ mode = "region"       # region | window | fullscreen
 delay = 0             # seconds (0-60)
 include_cursor = false
 
-[preview]
-stay_on_top = true
-window_width = 600
-window_height = 450
-max_width = 800
-
 [clipboard]
 tool = "wl-copy"      # wl-copy | qt | both
 
 [shortcuts]
 save = "Ctrl+S"
 copy = "Ctrl+C"
-close = "Escape"
 new_capture = "Ctrl+N"
+close = "Escape"
+
+[preview]
+stay_on_top = true
+window_width = 600
+window_height = 450
+max_width = 800
+
+[ui]
+language = "en"       # currently only "en"
 ```
 
 ---

@@ -19,7 +19,7 @@ import proc
 from version import VERSION
 
 if TYPE_CHECKING:
-    from PySide6.QtCore import QPoint, Qt, QTimer
+    from PySide6.QtCore import QBuffer, QIODevice, QPoint, Qt, QTimer
     from PySide6.QtGui import QAction, QCursor, QGuiApplication, QPixmap
     from PySide6.QtWidgets import (
         QApplication,
@@ -33,6 +33,7 @@ if TYPE_CHECKING:
 
     from capture import capture_async, capture_fullscreen, capture_region
     from dispatcher import EventReceiver
+    from history import HistoryDialog
     from overlay import CountdownOverlay, RegionSelector, WindowSelector
     from preview import PreviewWindow
     from settings import SettingsDialog
@@ -55,6 +56,7 @@ def _load_gui():
 
     import capture as cap
     import dispatcher as disp
+    import history as hst
     import overlay as ov
     import preview as prv
     import settings as stg
@@ -62,6 +64,8 @@ def _load_gui():
 
     g = globals()
     g["QPoint"] = qtcore.QPoint
+    g["QBuffer"] = qtcore.QBuffer
+    g["QIODevice"] = qtcore.QIODevice
     g["Qt"] = qtcore.Qt
     g["QTimer"] = qtcore.QTimer
     g["QAction"] = qtgui.QAction
@@ -84,6 +88,7 @@ def _load_gui():
     g["WindowSelector"] = ov.WindowSelector
     g["PreviewWindow"] = prv.PreviewWindow
     g["SettingsDialog"] = stg.SettingsDialog
+    g["HistoryDialog"] = hst.HistoryDialog
     g["ChamelShotTray"] = tr.ChamelShotTray
     _loaded_gui = True
 
@@ -127,7 +132,10 @@ class ChamelShotApp:
         self.settings = cfg.load()
         self.selector: RegionSelector | WindowSelector | None = None
         self._launcher: QWidget | None = None
+        self._history_dlg = None
+        self.preview: PreviewWindow | None = None
         self._capturing = False
+        self._from_launcher = False
         self._menu: QMenu | None = None
         self._receiver = EventReceiver()
         self._setup_ipc()
@@ -158,6 +166,7 @@ class ChamelShotApp:
             "settings": self._open_settings,
             "menu": self._show_tray_menu,
             "open-history": self._open_history_folder,
+            "open-history-ui": self._open_history_ui,
             "show-launcher": self._show_launcher,
             "quit": self.app.quit,
         }
@@ -200,22 +209,31 @@ class ChamelShotApp:
             {"label": "  ▭  Capture Window", "callback": lambda: self._start_capture_mode("window")},
             {"label": "  ⊞  Capture Fullscreen", "callback": lambda: self._start_capture_mode("fullscreen")},
             {"type": "separator"},
-            {"label": "Recent", "callback": None},
         ]
 
+        recent: list[dict] = []
         hist = cfg.HISTORY_DIR
-        shown = 0
         if hist.is_dir():
             entries = sorted(hist.glob("screenshot_*.png"), reverse=True)[: min(cfg.MAX_HISTORY, 5)]
-            for entry in entries:
+            for idx, entry in enumerate(entries, start=1):
                 label = self._format_history_time(entry)
-                items.append({"label": f"  \u23f1  {label}", "callback": lambda p=entry: self._open_history_file(p)})
-                shown += 1
-        if not shown:
-            items.append({"label": "  \u2014  No screenshots", "callback": None})
+                recent.append(
+                    {
+                        "label": f"  \u231f  [{idx}] {label}",
+                        "children": [
+                            {"label": "  \u270e  Re-edit", "callback": lambda p=entry: self._reopen_for_edit(p)},
+                            {"label": "  \U0001f5c2  Open", "callback": lambda p=entry: self._open_history_file(p)},
+                            {"label": "  \u29c9  Copy", "callback": lambda p=entry: self._copy_history_file(p)},
+                        ],
+                    }
+                )
+        if not recent:
+            recent.append({"label": "  \u2014  No screenshots", "callback": None})
+        items.append({"label": "  \u231f  Recent", "children": recent})
 
         items.extend(
             [
+                {"label": "  \U0001f5c2  History Browser", "callback": self._open_history_ui},
                 {"label": "  \U0001f5c2  Open History Folder", "callback": self._open_history_folder},
                 {"type": "separator"},
                 {"label": "  \u2699  Settings", "callback": self._open_settings},
@@ -223,6 +241,51 @@ class ChamelShotApp:
             ]
         )
         return items
+
+    def _open_history_ui(self, *_args):
+        dlg = getattr(self, "_history_dlg", None)
+        if dlg is None or not dlg.isVisible():
+            dlg = HistoryDialog(config=self.settings, on_edit=self._reopen_for_edit)
+            self._history_dlg = dlg
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
+
+    def _reopen_for_edit(self, path: Path):
+        pm = QPixmap(str(path))
+        if pm.isNull():
+            QMessageBox.warning(None, "Re-edit", f"Could not load image:\n{path}")
+            return
+        old = getattr(self, "preview", None)
+        if old is not None:
+            old.close()
+        self.preview = PreviewWindow(
+            pm,
+            config=self.settings,
+            on_new_capture=self.start_capture,
+            source_path=str(path),
+        )
+        self.preview.show()
+
+    def _copy_history_file(self, path: Path):
+        pm = QPixmap(str(path))
+        if pm.isNull():
+            QMessageBox.warning(None, "Copy", f"Could not load image:\n{path}")
+            return
+        tool = self.settings.get("clipboard.tool", "wl-copy")
+        if tool in ("qt", "both"):
+            QApplication.clipboard().setPixmap(pm)
+        if tool in ("wl-copy", "both") and shutil.which("wl-copy"):
+            buf = QBuffer()
+            buf.open(QIODevice.OpenModeFlag.ReadWrite)
+            if pm.save(buf, "PNG"):
+                subprocess.run(
+                    ["wl-copy", "--type", "image/png"],
+                    input=buf.data().data(),
+                    timeout=5,
+                    env=proc.env(),
+                )
+            buf.close()
 
     def _open_history_file(self, path: Path):
         try:
@@ -260,17 +323,27 @@ class ChamelShotApp:
     def _rebuild_menu_items(self):
         menu = self._ensure_menu()
         menu.clear()
-        for item in self._build_menu_items():
-            if item.get("type") == "separator":
-                menu.addSeparator()
-                continue
-            action = QAction(item.get("label", ""))
-            callback = item.get("callback")
-            if callback:
-                action.triggered.connect(callback)
-            else:
-                action.setEnabled(False)
-            menu.addAction(action)
+
+        def add_items(target, items):
+            for item in items:
+                if item.get("type") == "separator":
+                    target.addSeparator()
+                    continue
+                children = item.get("children")
+                if children:
+                    sub = QMenu(item.get("label", ""))
+                    add_items(sub, children)
+                    target.addMenu(sub)
+                    continue
+                action = QAction(item.get("label", ""))
+                callback = item.get("callback")
+                if callback:
+                    action.triggered.connect(callback)
+                else:
+                    action.setEnabled(False)
+                target.addAction(action)
+
+        add_items(menu, self._build_menu_items())
 
     def _show_tray_menu(self, x=0, y=0):
         menu = self._ensure_menu()
@@ -353,10 +426,15 @@ class ChamelShotApp:
 
     def _start_from_launcher(self, mode):
         self._start_capture_mode(mode)
+        # Set after start_capture() resets it — only launcher-origin cancels
+        # restore the launcher.
+        self._from_launcher = True
 
     def _on_cancel(self):
         self._capturing = False
-        QTimer.singleShot(0, self._show_launcher)
+        if self._from_launcher:
+            self._from_launcher = False
+            QTimer.singleShot(0, self._show_launcher)
 
     def _do_capture(self, pixmap):
         old = getattr(self, "preview", None)
@@ -418,6 +496,7 @@ class ChamelShotApp:
     def start_capture(self):
         if self._capturing:
             return
+        self._from_launcher = False  # any direct entry (keybind/IPC/tray) clears launcher origin
         mode = self.settings.get("capture.mode", "region")
         if mode == "fullscreen":
             delay = self.settings.get("capture.delay", 0)
@@ -468,6 +547,7 @@ Options:
       --settings         Open the settings dialog
       --test-tray        Start normally, then pop the tray menu after ~1.5s
       --open-history     Open the history folder
+      --history          Open the history browser
       --install-autostart  Install an autostart entry (runs at login)
       --remove-autostart Remove the autostart entry
   -v, --version          Print version and exit
@@ -505,6 +585,8 @@ def main():
         cmd = "settings"
     elif "--test-tray" in sys.argv:
         cmd = "menu"
+    elif "--history" in sys.argv:
+        cmd = "open-history-ui"
     elif "--open-history" in sys.argv:
         cmd = "open-history"
 

@@ -55,17 +55,24 @@ LOG = %(log)r
 def builder():
     with open(SPEC) as f:
         spec = json.load(f)
-    return [
-        {
-            **item,
-            "callback": (
-                (lambda cb_id=item["callback"]: on_clicked(cb_id))
-                if item.get("callback")
-                else None
-            ),
-        }
-        for item in spec
-    ]
+
+    def convert(items):
+        out = []
+        for item in items:
+            entry = {
+                **item,
+                "callback": (
+                    (lambda cb_id=item["callback"]: on_clicked(cb_id))
+                    if item.get("callback")
+                    else None
+                ),
+            }
+            if item.get("children"):
+                entry["children"] = convert(item["children"])
+            out.append(entry)
+        return out
+
+    return convert(spec)
 
 def on_clicked(cb_id):
     try:
@@ -259,6 +266,55 @@ def test_about_to_show_group(menu_server):
     result = _client("out = iface.AboutToShowGroup([0])\nRESULT = {'id': out[0][0], 'need': bool(out[0][1])}")
     assert result["id"] == 0
     assert result["need"] is False
+
+
+def test_submenu_layout_and_event(menu_server):
+    _write_spec(
+        [
+            {"label": "Top", "callback": "top"},
+            {
+                "label": "Recent",
+                "children": [
+                    {"label": "Recent sub 1", "callback": "rec-1"},
+                    {"label": "Recent sub 2", "callback": "rec-2"},
+                ],
+            },
+            {"label": "Bottom", "callback": "bottom"},
+        ]
+    )
+    _client("RESULT = {'need': bool(iface.AboutToShow(0))}")
+
+    result = _client(
+        "rev, layout = iface.GetLayout(0, -1, dbus.Array([], signature='s'))\n"
+        "children = list(layout[2])\n"
+        "RESULT = {'root_ids': [c[0] for c in children],\n"
+        "          'parent_display': children[1][1]['children-display'],\n"
+        "          'parent_id': children[1][0]}"
+    )
+    assert result["root_ids"] == [1, 2, 5]
+    assert result["parent_display"] == "submenu"
+    assert result["parent_id"] == 2
+
+    # GetLayout on the submenu parent returns its nested children.
+    result = _client(
+        "rev, layout = iface.GetLayout(2, -1, dbus.Array([], signature='s'))\n"
+        "RESULT = {'ids': [c[0] for c in layout[2]],\n"
+        "          'labels': [c[1]['label'] for c in layout[2]]}"
+    )
+    assert result["ids"] == [3, 4]
+    assert result["labels"] == ["Recent sub 1", "Recent sub 2"]
+
+    # A click inside a submenu dispatches that item's callback.
+    try:
+        os.unlink(LOG)
+    except FileNotFoundError:
+        pass
+    _client("iface.Event(4, 'clicked', '0', 0)\nRESULT = {}")
+    log = _wait_log(1)
+    assert log == ["rec-2"]
+
+    _write_spec(FULL_SPEC)
+    _client("RESULT = {'need': bool(iface.AboutToShow(0))}")
 
 
 def test_dbusmenu_properties(menu_server):

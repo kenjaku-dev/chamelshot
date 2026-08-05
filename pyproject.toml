@@ -32,6 +32,15 @@ lint.select = ["E", "F", "I", "N", "W", "UP"]
 [tool.pyright]
 typeCheckingMode = "basic"
 reportMissingImports = false
+exclude = [
+    "build",
+    "dist",
+    ".venv",
+    "__pycache__",
+    ".pytest_cache",
+    ".ruff_cache",
+    "*.egg-info",
+]
 
 [tool.uv]
 package = true
@@ -41,6 +50,7 @@ py-modules = ["__init__", "version", "dispatcher", "ipc", "editor", "main", "cap
 
 [tool.pytest.ini_options]
 python_files = ["test_*.py"]
+pythonpath = ["."]
 
 [dependency-groups]
 dev = [

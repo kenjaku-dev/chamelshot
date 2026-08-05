@@ -10,6 +10,7 @@ import datetime
 import os
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 from PySide6.QtCore import QBuffer, QIODevice, Qt, QTimer
@@ -163,11 +164,14 @@ ACTION_STYLE = """
 
 
 class PreviewWindow(QWidget):
-    def __init__(self, pixmap: QPixmap, config: dict | None = None, on_new_capture=None):
+    def __init__(
+        self, pixmap: QPixmap, config: dict | None = None, on_new_capture=None, source_path: str | None = None
+    ):
         super().__init__()
         self.pixmap = pixmap
         self.cfg = config or cfg.load()
         self.on_new_capture = on_new_capture
+        self.source_path = source_path  # re-emit session: save()/quick-save target this file
         self.setWindowTitle("ChamelShot - Screenshot")
 
         if self.cfg.get("preview.stay_on_top", True):
@@ -345,6 +349,9 @@ class PreviewWindow(QWidget):
         if not isinstance(path, str) or not path:
             return
 
+        source_path = getattr(self, "source_path", None)
+        overwrite_source = source_path and os.path.abspath(path) == os.path.abspath(source_path)
+
         def work():
             os.makedirs(os.path.dirname(path), exist_ok=True)
             # PySide6 stubs type the format parameter as bytes (const char*).
@@ -352,7 +359,8 @@ class PreviewWindow(QWidget):
             ok = img.save(path, fmt_bytes) if quality < 0 else img.save(path, fmt_bytes, quality)
             if not ok:
                 raise RuntimeError(f"Failed to write file: {path}")
-            _history_add(path)
+            if not overwrite_source:
+                _history_add(path)
             return path
 
         def done(saved_path):
@@ -364,10 +372,12 @@ class PreviewWindow(QWidget):
 
     def save(self):
         fmt = self.cfg.get("save.format", "PNG")
+        source_path = getattr(self, "source_path", None)
+        default_path = source_path or cfg.generate_save_path(self.cfg)
         path, _ = QFileDialog.getSaveFileName(
             self,
             "Save Screenshot",
-            os.path.expanduser("~/chamelshot.png"),
+            default_path,
             f"{fmt} (*.{fmt.lower()})",
             options=QFileDialog.Option.DontUseNativeDialog,
         )
@@ -435,7 +445,8 @@ class PreviewWindow(QWidget):
 
     def _quick_save(self, close=True):
         try:
-            path = cfg.generate_save_path(self.cfg)
+            source_path = getattr(self, "source_path", None)
+            path = source_path or cfg.generate_save_path(self.cfg)
             img = self._current_image()
             fmt = self.cfg.get("save.format", "PNG")
             self._save_async(img, path, fmt, self.cfg.get("save.quality", -1), close=close)
@@ -454,12 +465,17 @@ class PreviewWindow(QWidget):
 
     def _open_viewer(self):
         img = self._current_image()
-        path = cfg.HISTORY_DIR / "_preview_tmp.png"
-        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, name = tempfile.mkstemp(prefix="chamelshot_preview_", suffix=".png")
+        os.close(fd)
+        path = Path(name)
 
         def work():
-            if not img.save(str(path), b"PNG"):
-                raise RuntimeError("Failed to write preview file")
+            try:
+                if not img.save(str(path), b"PNG"):
+                    raise RuntimeError("Failed to write preview file")
+            except Exception:
+                path.unlink(missing_ok=True)
+                raise
             return path
 
         def done(tmp_path):
@@ -473,6 +489,9 @@ class PreviewWindow(QWidget):
                         env=proc.env(),
                     )
                     break
+            # Concise: viewers may read the file lazily (feh/eog/sxiv return
+            # before reading), so delete it shortly after spawn, not before.
+            QTimer.singleShot(30_000, lambda: tmp_path.unlink(missing_ok=True))
 
         run_async(self, work, done, self._async_error("Open Error"))
 

@@ -69,6 +69,43 @@ def test_pin_calls_on_pin_with_current_pixmap():
     assert received == {"pm": "pixmap"}
 
 
+def test_wl_copy_args_plain():
+    assert prv._wl_copy_args(False) == ["wl-copy", "--type", "image/png"]
+
+
+def test_wl_copy_args_primary():
+    assert prv._wl_copy_args(True) == ["wl-copy", "--type", "image/png", "--primary"]
+
+
+def test_copy_to_clipboard_primary_feeds_primary_selection(tmp_path, monkeypatch):
+    monkeypatch.setattr(prv.cfg, "HISTORY_DIR", tmp_path)
+    w = prv.PreviewWindow.__new__(prv.PreviewWindow)
+    w.cfg = {"clipboard.tool": "wl-copy"}
+    fake_img = MagicMock()
+    fake_img.save.return_value = True
+    w._current_image = MagicMock(return_value=fake_img)
+    w._notify = MagicMock()
+
+    runs = []
+
+    def fake_run_async(receiver, work, on_ok=None, on_error=None):
+        result = work()
+        runs.append(result)
+        if on_ok:
+            on_ok(result)
+
+    monkeypatch.setattr(prv, "run_async", fake_run_async)
+    monkeypatch.setattr(prv.shutil, "which", lambda name: True)
+    run = MagicMock()
+    monkeypatch.setattr(prv.subprocess, "run", run)
+
+    w.copy_to_clipboard(primary=True, closing=False)
+
+    calls = [c.args[0] for c in run.call_args_list]
+    assert ["wl-copy", "--type", "image/png", "--primary"] in calls
+    assert ["wl-copy", "--type", "image/png"] in calls
+
+
 def test_open_viewer_writes_temp_file_outside_history(tmp_path, monkeypatch):
     hist_dir = tmp_path / "history"
     monkeypatch.setattr(prv.cfg, "HISTORY_DIR", hist_dir)

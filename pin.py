@@ -109,6 +109,7 @@ class PinWindow(QWidget):
         bar.setSpacing(4)
         for text, slot in (
             ("Copy", self._copy),
+            ("Copy Primary", lambda: self._copy(primary=True)),
             ("Save", self._save),
             ("Re-edit", self._re_edit),
             ("Close", self.close),
@@ -154,7 +155,7 @@ class PinWindow(QWidget):
             return False
         return super().eventFilter(obj, event)
 
-    def _copy(self):
+    def _copy(self, primary=False):
         tool = self.cfg.get("clipboard.tool", "wl-copy")
         if tool in ("qt", "both"):
             QApplication.clipboard().setPixmap(self.pixmap)
@@ -162,12 +163,16 @@ class PinWindow(QWidget):
             buf = QBuffer()
             buf.open(QIODevice.OpenModeFlag.ReadWrite)
             if self.pixmap.save(buf, "PNG"):
-                subprocess.run(
-                    ["wl-copy", "--type", "image/png"],
-                    input=buf.data().data(),
-                    timeout=5,
-                    env=proc.env(),
-                )
+                targets = [False]
+                if primary:
+                    targets.append(True)
+                for is_primary in targets:
+                    subprocess.run(
+                        ["wl-copy", "--type", "image/png", *(["--primary"] if is_primary else [])],
+                        input=buf.data().data(),
+                        timeout=5,
+                        env=proc.env(),
+                    )
             buf.close()
         self._notify("Pinned image copied")
 

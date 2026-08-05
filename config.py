@@ -67,6 +67,8 @@ new_capture = "{shortcuts[new_capture]}"
 close = "{shortcuts[close]}"
 # Pin the current screenshot on screen
 pin = "{shortcuts[pin]}"
+# Copy to clipboard and primary selection (middle-click paste)
+copy_primary = "{shortcuts[copy_primary]}"
 
 [preview]
 # Maximum dimension for the thumbnail in preview (larger = slower)
@@ -100,6 +102,7 @@ DEFAULTS = {
     "shortcuts.new_capture": "Ctrl+N",
     "shortcuts.close": "Escape",
     "shortcuts.pin": "Ctrl+P",
+    "shortcuts.copy_primary": "Ctrl+Shift+C",
     "preview.max_width": 800,
     "preview.window_width": 600,
     "preview.window_height": 450,

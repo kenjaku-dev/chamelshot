@@ -38,6 +38,14 @@ from dispatcher import run_async
 from editor import Annotator
 
 
+def _wl_copy_args(primary: bool) -> list[str]:
+    """wl-copy argv: [--primary] places the image on the primary selection."""
+    args = ["wl-copy", "--type", "image/png"]
+    if primary:
+        args.append("--primary")
+    return args
+
+
 def _history_add(saved_path):
     """Copy an already-saved file into the history (no second PNG encode)."""
     hist_dir = cfg.HISTORY_DIR
@@ -235,6 +243,12 @@ class PreviewWindow(QWidget):
         self.btn_copy.clicked.connect(lambda: self.copy_to_clipboard())
         ol_layout.addWidget(self.btn_copy)
 
+        self.btn_copy_primary = QPushButton("Copy Primary")
+        self.btn_copy_primary.setToolTip("Copy to clipboard and primary selection (middle-click paste)")
+        self.btn_copy_primary.setStyleSheet(ACTION_STYLE)
+        self.btn_copy_primary.clicked.connect(lambda: self.copy_to_clipboard(primary=True))
+        ol_layout.addWidget(self.btn_copy_primary)
+
         self.btn_export = QPushButton("Export")
         self.btn_export.setToolTip("Export with format and quality options")
         self.btn_export.setStyleSheet(ACTION_STYLE)
@@ -313,6 +327,7 @@ class PreviewWindow(QWidget):
         mapping = {
             "save": self.save,
             "copy": self.copy_to_clipboard,
+            "copy_primary": lambda: self.copy_to_clipboard(primary=True),
             "close": self.close,
             "pin": self._pin,
         }
@@ -414,7 +429,7 @@ class PreviewWindow(QWidget):
             img = self._current_image()
             self._save_async(img, path, fmt, self.cfg.get("save.quality", -1))
 
-    def copy_to_clipboard(self, closing=True):
+    def copy_to_clipboard(self, closing=True, primary=False):
         try:
             img = self._current_image()
             tool = self.cfg.get("clipboard.tool", "wl-copy")
@@ -429,7 +444,16 @@ class PreviewWindow(QWidget):
                 png_data = buf.data().data()
                 buf.close()
                 if use_wl:
-                    subprocess.run(["wl-copy", "--type", "image/png"], input=png_data, timeout=5, env=proc.env())
+                    targets = [False]
+                    if primary:
+                        targets.append(True)
+                    for is_primary in targets:
+                        subprocess.run(
+                            _wl_copy_args(is_primary),
+                            input=png_data,
+                            timeout=5,
+                            env=proc.env(),
+                        )
                 return png_data
 
             def done(_png_data):

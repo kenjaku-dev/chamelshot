@@ -157,7 +157,7 @@ bind = CTRL, Print, exec, chamelshot --settings
 **Shortcuts:** `Ctrl+Z` undo, `Ctrl+Y` redo, `Escape` cancel current annotation
 
 ### Preview Window
-- View, annotate, save, or copy to clipboard
+- View, annotate, save, or copy to clipboard (including primary selection for middle-click paste)
 - Pin a screenshot on screen as a frameless floating reference
 - Re-capture without leaving the preview
 - Keyboard shortcuts for save/copy/close/pin (configurable in settings)
@@ -226,6 +226,7 @@ copy = "Ctrl+C"
 new_capture = "Ctrl+N"
 close = "Escape"
 pin = "Ctrl+P"
+copy_primary = "Ctrl+Shift+C"
 
 [preview]
 stay_on_top = true

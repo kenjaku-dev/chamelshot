@@ -34,10 +34,13 @@ if TYPE_CHECKING:
     from capture import (
         capture_async,
         capture_fullscreen,
+        capture_geometry,
         capture_monitor,
         capture_region,
+        capture_window,
         focused_monitor,
         list_monitors,
+        parse_region_geometry,
     )
     from dispatcher import EventReceiver
     from history import HistoryDialog
@@ -90,10 +93,13 @@ def _load_gui():
     g["QWidget"] = qtw.QWidget
     g["capture_async"] = cap.capture_async
     g["capture_fullscreen"] = cap.capture_fullscreen
+    g["capture_geometry"] = cap.capture_geometry
     g["capture_monitor"] = cap.capture_monitor
     g["capture_region"] = cap.capture_region
+    g["capture_window"] = cap.capture_window
     g["focused_monitor"] = cap.focused_monitor
     g["list_monitors"] = cap.list_monitors
+    g["parse_region_geometry"] = cap.parse_region_geometry
     g["EventReceiver"] = disp.EventReceiver
     g["CountdownOverlay"] = ov.CountdownOverlay
     g["RegionSelector"] = ov.RegionSelector
@@ -138,12 +144,22 @@ _LAUNCHER_STYLE = """
 
 
 class ChamelShotApp:
-    def __init__(self, auto_capture=False, auto_monitor=False):
+    def __init__(
+        self,
+        auto_capture=False,
+        auto_monitor=False,
+        auto_geometry=None,
+        auto_output=None,
+        auto_window=None,
+    ):
         self.app = QApplication(sys.argv)
         self.app.setApplicationName("ChamelShot")
         self.app.setQuitOnLastWindowClosed(False)
         self.auto_capture = auto_capture
         self.auto_monitor = auto_monitor
+        self.auto_geometry: str | None = auto_geometry
+        self.auto_output: str | None = auto_output
+        self.auto_window: str | None = auto_window
         self.settings = cfg.load()
         self.selector: RegionSelector | WindowSelector | None = None
         self._launcher: QWidget | None = None
@@ -174,13 +190,16 @@ class ChamelShotApp:
 
     # ---------------------------------------------------------------- IPC
 
-    def _on_ipc_command(self, cmd: str):
+    def _on_ipc_command(self, cmd: str, arg: str = ""):
         actions = {
             "capture": lambda: self.start_capture(),
             "capture-region": lambda: self._start_capture_mode("region"),
             "capture-window": lambda: self._start_capture_mode("window"),
             "capture-fullscreen": lambda: self._start_capture_mode("fullscreen"),
             "capture-monitor": lambda: self._start_capture_mode("monitor"),
+            "capture-geometry": lambda: self._capture_geometry_arg(arg),
+            "capture-output": lambda: self._capture_output_arg(arg),
+            "capture-window-app": lambda: self._capture_window_arg(arg),
             "settings": self._open_settings,
             "menu": self._show_tray_menu,
             "open-history": self._open_history_folder,
@@ -192,6 +211,30 @@ class ChamelShotApp:
         fn = actions.get(cmd)
         if fn:
             fn()
+
+    def _capture_geometry_arg(self, geometry: str):
+        rect = parse_region_geometry(geometry)
+        if rect is None:
+            QMessageBox.warning(None, "Geometry capture", f"Invalid geometry '{geometry}'. Expected WxH+X+Y.")
+            return
+        if self._launcher is not None:
+            self._launcher.hide()
+        cursor = self.settings.get("capture.include_cursor", False)
+        self._do_capture_async(lambda: capture_geometry(geometry, include_cursor=cursor))
+
+    def _capture_output_arg(self, output: str):
+        if output not in {name for name, _, _ in list_monitors()}:
+            QMessageBox.warning(None, "Monitor capture", f"Unknown monitor '{output}'.")
+            return
+        if self._launcher is not None:
+            self._launcher.hide()
+        cursor = self.settings.get("capture.include_cursor", False)
+        self._do_capture_async(lambda: capture_monitor(output, include_cursor=cursor))
+
+    def _capture_window_arg(self, app_id: str):
+        if self._launcher is not None:
+            self._launcher.hide()
+        self._do_capture_async(lambda: capture_window(app_id))
 
     def _pin_last_preview(self):
         preview = getattr(self, "preview", None)
@@ -604,6 +647,15 @@ class ChamelShotApp:
             QTimer.singleShot(100, self.start_capture)
         elif self.auto_monitor:
             QTimer.singleShot(100, lambda: self._start_capture_mode("monitor"))
+        elif self.auto_geometry:
+            geometry = self.auto_geometry
+            QTimer.singleShot(100, lambda: self._capture_geometry_arg(geometry))
+        elif self.auto_output:
+            output = self.auto_output
+            QTimer.singleShot(100, lambda: self._capture_output_arg(output))
+        elif self.auto_window:
+            app_id = self.auto_window
+            QTimer.singleShot(100, lambda: self._capture_window_arg(app_id))
         elif show_launcher:
             QTimer.singleShot(0, self._show_launcher)
         return self.app.exec()
@@ -628,6 +680,9 @@ Usage:
 Options:
   -c, --capture          Capture using the configured mode (region/window/fullscreen/monitor)
       --capture-monitor   Capture the configured/focused monitor
+      --region WxH+X+Y    Capture a sub-region (e.g. 1920x1080+100+100)
+      --output <name>     Capture a specific monitor by output name
+      --window <app_id>   Capture a specific window by app_id (niri, best-effort)
       --pin              Pin the current screenshot on screen
       --settings         Open the settings dialog
       --test-tray        Start normally, then pop the tray menu after ~1.5s
@@ -660,14 +715,34 @@ def main():
 
     check_deps()
 
+    def _arg_value(flag: str) -> str | None:
+        """Return the value that follows `flag` in sys.argv, or None."""
+        for idx, item in enumerate(sys.argv):
+            if item == flag and idx + 1 < len(sys.argv):
+                return sys.argv[idx + 1]
+            if item.startswith(flag + "="):
+                return item.split("=", 1)[1]
+        return None
+
+    geometry = _arg_value("--region")
+    output_arg = _arg_value("--output")
+    window_arg = _arg_value("--window")
+
     # Map CLI args to an IPC command; if a daemon is already running, forward
     # the command to it and exit — this is what makes keybindings "just work"
     # without spawning duplicate instances.
     cmd = "show-launcher"
+    arg = ""
     if "--capture" in sys.argv or "-c" in sys.argv:
         cmd = "capture"
     elif "--capture-monitor" in sys.argv:
         cmd = "capture-monitor"
+    elif geometry:
+        cmd, arg = "capture-geometry", geometry
+    elif output_arg:
+        cmd, arg = "capture-output", output_arg
+    elif window_arg:
+        cmd, arg = "capture-window-app", window_arg
     elif "--pin" in sys.argv:
         cmd = "pin"
     elif "--settings" in sys.argv:
@@ -680,7 +755,7 @@ def main():
         cmd = "open-history"
 
     if ipc.send_command(cfg.IPC_SOCKET_PATH, "ping"):
-        ipc.send_command(cfg.IPC_SOCKET_PATH, cmd)
+        ipc.send_command(cfg.IPC_SOCKET_PATH, cmd, arg)
         print(f"chamelshot: forwarded '{cmd}' to running instance")
         return
 
@@ -695,9 +770,18 @@ def main():
 
     auto_capture = "--capture" in sys.argv or "-c" in sys.argv
     auto_monitor = "--capture-monitor" in sys.argv
+    auto_geometry = geometry or None
+    auto_output = output_arg or None
+    auto_window = window_arg or None
     _load_gui()
     try:
-        app = ChamelShotApp(auto_capture=auto_capture, auto_monitor=auto_monitor)
+        app = ChamelShotApp(
+            auto_capture=auto_capture,
+            auto_monitor=auto_monitor,
+            auto_geometry=auto_geometry,
+            auto_output=auto_output,
+            auto_window=auto_window,
+        )
     except ipc.AlreadyRunningError:
         print("chamelshot: another instance started concurrently; exiting")
         return

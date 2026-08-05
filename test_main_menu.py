@@ -222,3 +222,75 @@ def test_history_tray_item_registered(tmp_path, monkeypatch):
     history_items = [i for i in items if "History Browser" in i.get("label", "")]
     assert len(history_items) == 1
     history_items[0]["callback"]()
+
+
+def test_ipc_geometry_arg_hides_launcher_and_captures(tmp_path, monkeypatch):
+    import main as main_mod
+
+    app = _app(tmp_path, monkeypatch)
+    launcher = _FakeLauncher()
+    app._launcher = launcher
+    app._do_capture_async = MagicMock()
+    setattr(main_mod, "parse_region_geometry", lambda g: (0, 0, 1, 1))
+    app._capture_geometry_arg("1x1+0+0")
+    assert launcher.hidden
+    assert app._do_capture_async.call_count == 1
+
+
+def test_ipc_geometry_arg_invalid_warns(tmp_path, monkeypatch):
+    import main as main_mod
+
+    app = _app(tmp_path, monkeypatch)
+    app._do_capture_async = MagicMock()
+    warned = []
+    monkeypatch.setattr(
+        main_mod,
+        "QMessageBox",
+        type("Msg", (), {"warning": staticmethod(lambda *a, **k: warned.append(a))}),
+        raising=False,
+    )
+    monkeypatch.setattr(main_mod, "parse_region_geometry", lambda g: None)
+    app._capture_geometry_arg("bogus")
+    assert len(warned) == 1
+    app._do_capture_async.assert_not_called()
+
+
+def test_ipc_output_arg_unknown_warns(tmp_path, monkeypatch):
+    import main as main_mod
+
+    app = _app(tmp_path, monkeypatch)
+    app._do_capture_async = MagicMock()
+    warned = []
+    monkeypatch.setattr(main_mod, "list_monitors", lambda: [("DP-2", "Dell", "")])
+    monkeypatch.setattr(
+        main_mod,
+        "QMessageBox",
+        type("Msg", (), {"warning": staticmethod(lambda *a, **k: warned.append(a))}),
+        raising=False,
+    )
+    app._capture_output_arg("HDMI-A-1")
+    assert len(warned) == 1
+    app._do_capture_async.assert_not_called()
+
+
+def test_ipc_output_arg_known_captures(tmp_path, monkeypatch):
+    import main as main_mod
+
+    app = _app(tmp_path, monkeypatch)
+    launcher = _FakeLauncher()
+    app._launcher = launcher
+    app._do_capture_async = MagicMock()
+    setattr(main_mod, "list_monitors", lambda: [("DP-1", "Dell", "")])
+    app._capture_output_arg("DP-1")
+    assert launcher.hidden
+    assert app._do_capture_async.call_count == 1
+
+
+def test_ipc_window_arg_hides_launcher_and_captures(tmp_path, monkeypatch):
+    app = _app(tmp_path, monkeypatch)
+    launcher = _FakeLauncher()
+    app._launcher = launcher
+    app._do_capture_async = MagicMock()
+    app._capture_window_arg("firefox")
+    assert launcher.hidden
+    assert app._do_capture_async.call_count == 1

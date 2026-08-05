@@ -7,9 +7,12 @@
 # (at your option) any later version.
 
 import json
+import re
 import subprocess
+import tempfile
 import threading
 import time
+from pathlib import Path
 
 from PySide6.QtGui import QPixmap
 
@@ -72,6 +75,29 @@ def focused_monitor() -> str | None:
     return data.get("name")
 
 
+def parse_region_geometry(geometry: str) -> tuple[int, int, int, int] | None:
+    """Parse 'WxH+X+Y' into (left, top, right, bottom); None if malformed."""
+    match = re.fullmatch(r"(\d+)x(\d+)\+(\d+)\+(\d+)", geometry.strip())
+    if not match:
+        return None
+    width, height, x, y = (int(g) for g in match.groups())
+    return (x, y, x + width, y + height)
+
+
+def find_window_id(windows_raw: str, app_id: str) -> int | None:
+    """Find the first window id with the given app_id in `niri msg -j windows` output."""
+    try:
+        windows = json.loads(windows_raw)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(windows, list):
+        return None
+    for win in windows:
+        if isinstance(win, dict) and win.get("app_id") == app_id:
+            return win.get("id")
+    return None
+
+
 def _run_grim(args: list[str], delay: int = 0) -> QPixmap:
     if delay > 0:
         time.sleep(delay)
@@ -117,6 +143,65 @@ def capture_monitor(output: str, delay: int = 0, include_cursor: bool = False) -
     args = ["--cursor"] if include_cursor else []
     args.extend(["-o", output, "-"])
     return _run_grim(args, delay)
+
+
+def capture_geometry(geometry: str, delay: int = 0, include_cursor: bool = False) -> QPixmap:
+    """Capture a sub-region described by 'WxH+X+Y'; raises on malformed input."""
+    rect = parse_region_geometry(geometry)
+    if rect is None:
+        raise RuntimeError(f"Invalid region geometry '{geometry}' (expected WxH+X+Y)")
+    left, top, right, bottom = rect
+    return capture_region(left, top, right, bottom, delay=delay, include_cursor=include_cursor)
+
+
+def capture_window(app_id: str, delay: int = 0) -> QPixmap:
+    """Best-effort capture of the window with the given app_id via niri IPC."""
+    if delay > 0:
+        time.sleep(delay)
+    try:
+        listing = subprocess.run(
+            ["niri", "msg", "-j", "windows"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            env=proc.env(),
+        )
+    except FileNotFoundError:
+        raise RuntimeError("niri is not installed (niri msg not found)")
+    if listing.returncode != 0:
+        raise RuntimeError(f"niri windows failed (exit {listing.returncode}): {listing.stderr.strip()}")
+    win_id = find_window_id(listing.stdout, app_id)
+    if win_id is None:
+        raise RuntimeError(f"no open window with app_id '{app_id}'")
+    try:
+        subprocess.run(
+            ["niri", "msg", "action", "focus-window", str(win_id)],
+            capture_output=True,
+            timeout=5,
+            env=proc.env(),
+        )
+        with tempfile.TemporaryDirectory(prefix="chamelshot-") as tmp:
+            out = Path(tmp) / "window.png"
+            result = subprocess.run(
+                ["niri", "msg", "action", "screenshot-window", "--path", str(out)],
+                capture_output=True,
+                timeout=10,
+                env=proc.env(),
+            )
+            if result.returncode != 0:
+                raise RuntimeError("niri window capture failed: " + result.stderr.decode().strip())
+            for _ in range(50):
+                if out.exists() and out.stat().st_size > 0:
+                    break
+                time.sleep(0.1)
+            pm = QPixmap(str(out)) if out.exists() else QPixmap()
+            if pm.isNull():
+                raise RuntimeError("niri window capture produced an empty image")
+            return pm
+    except FileNotFoundError:
+        raise RuntimeError("niri is not installed (niri show not found)")
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("niri window capture timed out")
 
 
 def capture_async(receiver, capture_fn, on_success, on_error):

@@ -95,6 +95,9 @@ chamelshot                          # show launcher, stays in tray after capture
 chamelshot -c                       # capture now (forwards to running daemon)
 chamelshot --capture                # same as -c
 chamelshot --capture-monitor        # capture the configured/focused monitor
+chamelshot --region 1920x1080+100+100  # capture a sub-region (WxH+X+Y)
+chamelshot --output DP-2            # capture a specific monitor by output name
+chamelshot --window firefox         # capture a window by app_id (niri, best-effort)
 chamelshot --pin                    # pin the current screenshot on screen
 chamelshot --settings               # open settings dialog directly
 chamelshot --test-tray              # pop the tray menu (diagnose tray issues)
@@ -173,7 +176,7 @@ bind = CTRL, Print, exec, chamelshot --settings
 ### Single Instance & IPC
 - First launch becomes the daemon (Unix socket at `~/.cache/chamelshot/daemon.sock`)
 - Later invocations forward the command to the daemon and exit
-- Commands: `-c`/`--capture`, `--capture-monitor`, `--pin`, `--settings`, `--test-tray`, `--open-history`
+- Commands: `-c`/`--capture`, `--capture-monitor`, `--region`, `--output`, `--window`, `--pin`, `--settings`, `--test-tray`, `--open-history`
 
 ### Screenshot History
 - Automatic save to `~/.cache/chamelshot/history/` on every capture

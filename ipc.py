@@ -82,11 +82,12 @@ class IpcServer:
                 try:
                     msg = json.loads(data.decode("utf-8"))
                     cmd = msg.get("cmd", "")
+                    arg = msg.get("arg", "")
                     # Imported lazily: `import ipc` must stay PySide6-free so
                     # CLI forwarding (`chamelshot --capture`) skips Qt import.
                     from dispatcher import post
 
-                    post(self.receiver, self.on_command, cmd)
+                    post(self.receiver, self.on_command, cmd, arg)
                 except (ValueError, UnicodeDecodeError) as _:
                     continue
 
@@ -100,12 +101,12 @@ class IpcServer:
             pass
 
 
-def send_command(socket_path, cmd) -> bool:
-    """Connect to a running daemon and send a command. Returns True on success."""
+def send_command(socket_path, cmd, arg="") -> bool:
+    """Connect to a running daemon and send a command (with optional arg). Returns True on success."""
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         sock.connect(str(socket_path))
-        sock.sendall(json.dumps({"cmd": cmd}).encode("utf-8"))
+        sock.sendall(json.dumps({"cmd": cmd, "arg": arg}).encode("utf-8"))
         return True
     except (FileNotFoundError, ConnectionRefusedError, OSError) as _:
         return False

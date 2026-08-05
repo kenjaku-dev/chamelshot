@@ -5,11 +5,15 @@ import pytest
 from capture import (
     GRIM_NOT_FOUND,
     capture_fullscreen,
+    capture_geometry,
     capture_monitor,
     capture_region,
+    capture_window,
+    find_window_id,
     focused_monitor,
     list_monitors,
     parse_monitors,
+    parse_region_geometry,
 )
 
 
@@ -138,3 +142,102 @@ class TestFocusedMonitor:
     def test_none_on_failure(self):
         with patch("capture._run_niri", return_value=None):
             assert focused_monitor() is None
+
+
+class TestParseRegionGeometry:
+    def test_parses_width_height_offsets(self):
+        assert parse_region_geometry("1920x1080+0+0") == (0, 0, 1920, 1080)
+
+    def test_parses_non_zero_offsets(self):
+        assert parse_region_geometry("800x600+100+200") == (100, 200, 900, 800)
+
+    def test_negative_offsets_not_allowed(self):
+        assert parse_region_geometry("100x50+-5+3") is None
+
+    def test_rejects_garbage(self):
+        assert parse_region_geometry("foo") is None
+        assert parse_region_geometry("1920x1080") is None
+        assert parse_region_geometry("") is None
+
+
+class TestFindWindowId:
+    WINDOWS = "not json"
+
+    def test_finds_by_app_id(self):
+        windows = '[{"app_id": "firefox", "id": 1}, {"app_id": "term", "id": 2}]'
+        assert find_window_id(windows, "firefox") == 1
+
+    def test_returns_none_when_absent(self):
+        windows = '[{"app_id": "firefox", "id": 1}]'
+        assert find_window_id(windows, "editor") is None
+
+    def test_bad_json(self):
+        assert find_window_id(self.WINDOWS, "firefox") is None
+
+    def test_non_list_json(self):
+        assert find_window_id('{"app_id": "firefox", "id": 1}', "firefox") is None
+
+
+@patch("capture.QPixmap", FakeQPixmap)
+class TestCaptureGeometry:
+    def test_delegates_to_region(self):
+        with patch("capture.capture_region") as mock_region:
+            mock_region.side_effect = lambda left, top, right, bottom, **kw: "pm"
+            assert capture_geometry("1920x1080+0+0") == "pm"
+        assert mock_region.call_args.args == (0, 0, 1920, 1080)
+
+    def test_passes_cursor(self):
+        with patch("capture.capture_region") as mock_region:
+            capture_geometry("100x50+10+20", include_cursor=True)
+        assert mock_region.call_args.kwargs == {"delay": 0, "include_cursor": True}
+
+    def test_invalid_geometry_raises_before_capture(self):
+        with patch("capture.capture_region") as mock_region:
+            try:
+                capture_geometry("bogus")
+            except RuntimeError as exc:
+                assert "geometry" in str(exc)
+            else:
+                assert False, "expected RuntimeError"
+        mock_region.assert_not_called()
+
+
+class TestCaptureWindow:
+    def test_window_not_found_raises(self):
+        with patch("capture.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout='[{"app_id": "x", "id": 1}]')
+            try:
+                capture_window("nobody")
+            except RuntimeError as exc:
+                assert "app_id" in str(exc)
+            else:
+                assert False, "expected RuntimeError"
+
+    def test_niri_missing_raises(self):
+        with patch(
+            "capture.subprocess.run",
+            side_effect=FileNotFoundError,
+        ):
+            with pytest.raises(RuntimeError, match="niri"):
+                capture_window("firefox")
+
+    def test_success_focuses_and_loads_pixmap(self):
+        results = [
+            MagicMock(returncode=0, stdout='[{"app_id": "firefox", "id": 7}]'),
+            MagicMock(returncode=0, stdout=b""),
+            MagicMock(returncode=0, stdout=b""),
+        ]
+        pm = MagicMock()
+        pm.isNull.return_value = False
+        with (
+            patch("capture.QPixmap", return_value=pm),
+            patch("capture.subprocess.run", side_effect=results) as mock_run,
+            patch("capture.tempfile.TemporaryDirectory") as mock_tmp,
+            patch("capture.time.sleep"),
+        ):
+            mock_tmp.return_value.__enter__.return_value = "/tmp/x"
+            assert capture_window("firefox") is pm
+        cmds = [c.args[0] for c in mock_run.call_args_list]
+        assert cmds[0] == ["niri", "msg", "-j", "windows"]
+        assert cmds[1] == ["niri", "msg", "action", "focus-window", "7"]
+        assert cmds[2][:5] == ["niri", "msg", "action", "screenshot-window", "--path"]

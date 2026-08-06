@@ -10,6 +10,7 @@ import datetime
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -215,15 +216,14 @@ def _write_toml(data: dict):
 AUTOSTART_PATH = Path.home() / ".config" / "autostart" / "chamelshot.desktop"
 
 
-def install_autostart():
+def install_autostart(exec_path: str | None = None):
     AUTOSTART_PATH.parent.mkdir(parents=True, exist_ok=True)
+    exec_line = f"Exec={exec_path}\n" if exec_path else "Exec=chamelshot\n"
     AUTOSTART_PATH.write_text(
         "[Desktop Entry]\n"
         "Type=Application\n"
         "Name=ChamelShot\n"
-        "Comment=ChamelShot system tray daemon\n"
-        "Exec=chamelshot\n"
-        "Icon=chamelshot\n"
+        "Comment=ChamelShot system tray daemon\n" + exec_line + "Icon=chamelshot\n"
         "Terminal=false\n"
         "X-GNOME-Autostart-enabled=true\n"
     )
@@ -235,6 +235,57 @@ def remove_autostart():
 
 def autostart_enabled() -> bool:
     return AUTOSTART_PATH.exists()
+
+
+SERVICE_PATH = Path.home() / ".config" / "systemd" / "user" / "chamelshot.service"
+
+SERVICE_TEMPLATE = """[Unit]
+Description=ChamelShot screenshot daemon
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart={exec}
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target
+"""
+
+
+def _systemctl_user(args: list[str]) -> bool:
+    """Best-effort systemctl call; False when systemd is unavailable."""
+    try:
+        return (
+            subprocess.run(
+                ["systemctl", "--user", *args],
+                capture_output=True,
+                timeout=15,
+            ).returncode
+            == 0
+        )
+    except OSError, subprocess.TimeoutExpired:
+        return False
+
+
+def install_service(exec_path: str) -> bool:
+    """Install a systemd user unit and start it; True when systemd took over."""
+    SERVICE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    SERVICE_PATH.write_text(SERVICE_TEMPLATE.format(exec=exec_path))
+    if not _systemctl_user(["daemon-reload"]):
+        return False
+    return _systemctl_user(["enable", "--now", "chamelshot"])
+
+
+def remove_service():
+    _systemctl_user(["disable", "--now", "chamelshot"])
+    SERVICE_PATH.unlink(missing_ok=True)
+    _systemctl_user(["daemon-reload"])
+
+
+def service_installed() -> bool:
+    return SERVICE_PATH.exists()
 
 
 DESKTOP_PATH = Path.home() / ".local" / "share" / "applications" / "chamelshot.desktop"

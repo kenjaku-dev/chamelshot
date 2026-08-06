@@ -53,9 +53,9 @@ if TYPE_CHECKING:
     from tray import ChamelShotTray
 
 # Heavy imports (PySide6, gi, capture/overlay/preview/settings/tray) happen
-# lazily in _load_gui(), so `--version`, `--install-autostart`, and the IPC
-# forward path run in ~50ms instead of paying ~1s of Qt import on every
-# keybind press.
+# lazily in _load_gui(), so `--version`, `--install-autostart`,
+# `--install-service`, and the IPC forward path run in ~50ms instead of
+# paying ~1s of Qt import on every keybind press.
 _loaded_gui = False
 
 
@@ -724,6 +724,8 @@ Options:
       --history          Open the history browser
       --install-autostart  Install an autostart entry (runs at login)
       --remove-autostart Remove the autostart entry
+      --install-service    Install a systemd user service (runs at login)
+      --remove-service    Remove the systemd user service
   -v, --version          Print version and exit
   -h, --help             Show this help and exit
 """
@@ -739,12 +741,24 @@ def main():
         return
 
     if "--install-autostart" in sys.argv:
-        cfg.install_autostart()
+        cfg.install_autostart(shutil.which("chamelshot") or sys.argv[0])
         print("Autostart enabled")
         return
     if "--remove-autostart" in sys.argv:
         cfg.remove_autostart()
         print("Autostart disabled")
+        return
+    if "--install-service" in sys.argv:
+        ok = cfg.install_service(shutil.which("chamelshot") or sys.argv[0])
+        if ok:
+            print("Systemd user service installed and started")
+        else:
+            print("Service file written but systemctl is unavailable; start it with:")
+            print("  systemctl --user enable --now chamelshot")
+        return
+    if "--remove-service" in sys.argv:
+        cfg.remove_service()
+        print("Systemd user service removed")
         return
 
     check_deps()

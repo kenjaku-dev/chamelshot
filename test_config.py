@@ -132,6 +132,41 @@ def test_autostart_install_remove(monkeypatch, tmp_path):
     assert not cfg.autostart_enabled()
 
 
+def test_autostart_pins_resolved_exec(monkeypatch, tmp_path):
+    autostart_dir = tmp_path / "autostart"
+    monkeypatch.setattr(cfg, "AUTOSTART_PATH", autostart_dir / "chamelshot.desktop")
+    cfg.install_autostart("/opt/chamelshot/bin/chamelshot")
+    content = (autostart_dir / "chamelshot.desktop").read_text()
+    assert "Exec=/opt/chamelshot/bin/chamelshot" in content
+
+
+def test_service_install_enables_and_starts(monkeypatch, tmp_path):
+    service_dir = tmp_path / "systemd" / "user"
+    monkeypatch.setattr(cfg, "SERVICE_PATH", service_dir / "chamelshot.service")
+    calls = []
+    monkeypatch.setattr(cfg, "_systemctl_user", lambda args: (calls.append(args), True)[1])
+    assert not cfg.service_installed()
+    assert cfg.install_service("/usr/bin/chamelshot") is True
+    assert cfg.service_installed()
+    content = (service_dir / "chamelshot.service").read_text()
+    assert "ExecStart=/usr/bin/chamelshot" in content
+    assert "Restart=on-failure" in content
+    assert "WantedBy=graphical-session.target" in content
+    assert calls == [["daemon-reload"], ["enable", "--now", "chamelshot"]]
+    cfg.remove_service()
+    assert not cfg.service_installed()
+    assert ["disable", "--now", "chamelshot"] in calls
+
+
+def test_service_install_writes_unit_when_systemd_unavailable(monkeypatch, tmp_path):
+    service_dir = tmp_path / "systemd" / "user"
+    monkeypatch.setattr(cfg, "SERVICE_PATH", service_dir / "chamelshot.service")
+    monkeypatch.setattr(cfg, "_systemctl_user", lambda args: False)
+    assert cfg.install_service("/opt/chamelshot") is False
+    assert cfg.service_installed()
+    assert "ExecStart=/opt/chamelshot" in (service_dir / "chamelshot.service").read_text()
+
+
 def test_desktop_install_remove(monkeypatch, tmp_path):
     apps = tmp_path / "applications"
     icons = tmp_path / "icons"

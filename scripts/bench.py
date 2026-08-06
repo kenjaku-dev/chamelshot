@@ -179,8 +179,56 @@ def _ping_quit():
     ipc.send_command(cfg.IPC_SOCKET_PATH, "quit")
 
 
+def _capture_env(td: Path) -> tuple[subprocess.Popen, Path, Path]:
+    """Spawn a daemon on a hermetic temp HOME; returns (proc, sock, history)."""
+    conf = td / ".config" / "chamelshot"
+    conf.mkdir(parents=True)
+    (conf / "config.toml").write_text(
+        '[general]\nauto_save = true\n\n[save]\ndirectory = "' + str(td / "shots") + '"\n'
+    )
+    home_cache = td / ".cache" / "chamelshot"
+    home_cache.mkdir(parents=True)
+    sock = home_cache / "daemon.sock"
+    history = home_cache / "history"
+    history.mkdir(parents=True)
+    proc = subprocess.Popen(
+        [sys.executable, str(MAIN)],
+        cwd=ROOT,
+        env=_env(HOME=str(td)),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return proc, sock, history
+
+
+def _capture_send(sock: Path, cmd: str = "capture-fullscreen") -> bool:
+    sys.path.insert(0, str(ROOT))
+    import ipc
+
+    return ipc.send_command(str(sock), cmd)
+
+
+def _wait_shot(history: Path, timeout_s: float) -> float | None:
+    """Poll for a new screenshot in the temp history; returns perf_counter time."""
+    before = set(history.glob("screenshot_*.png"))
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        if len(set(history.glob("screenshot_*.png"))) > len(before):
+            return time.perf_counter()
+        time.sleep(0.02)
+    return None
+
+
+def _stop_daemon(proc, sock: Path):
+    _capture_send(sock, "quit")
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+
+
 def bench_capture(timeout_s=10):
-    """End-to-end keybind→saved-shot latency on a hermetic temp HOME.
+    """Hot end-to-end latency: daemon already up, keybind→saved-shot.
 
     Runs the daemon with auto_save=true so every capture lands a file in the
     temp history dir — the only externally observable end of the pipeline.
@@ -191,64 +239,69 @@ def bench_capture(timeout_s=10):
         return
     td = Path(tempfile.mkdtemp(prefix="chamelshot-bench-"))
     try:
-        conf = td / ".config" / "chamelshot"
-        conf.mkdir(parents=True)
-        (conf / "config.toml").write_text(
-            '[general]\nauto_save = true\n\n[save]\ndirectory = "' + str(td / "shots") + '"\n'
-        )
-        home_cache = td / ".cache" / "chamelshot"
-        home_cache.mkdir(parents=True)
-        sock = home_cache / "daemon.sock"
-        history = home_cache / "history"
-        history.mkdir(parents=True)
-
-        def ping():
-            sys.path.insert(0, str(ROOT))
-            import ipc
-
-            return ipc.send_command(str(sock), "ping")
-
-        env = _env(HOME=str(td))
-        proc = subprocess.Popen(
-            [sys.executable, str(MAIN)],
-            cwd=ROOT,
-            env=env,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        proc, sock, history = _capture_env(td)
         try:
-            start = time.perf_counter()
             deadline = time.monotonic() + 20
             while time.monotonic() < deadline:
-                if ping():
+                if _capture_send(sock, "ping"):
                     break
                 if proc.poll() is not None:
                     print("capture_ms = failed (daemon exited early)")
                     return
                 time.sleep(0.02)
-            before = set(history.glob("screenshot_*.png"))
-            import ipc
-
-            ipc.send_command(str(sock), "capture-fullscreen")
-            shot_at = None
-            deadline = time.monotonic() + timeout_s
-            while time.monotonic() < deadline:
-                now = set(history.glob("screenshot_*.png"))
-                if len(now) > len(before):
-                    shot_at = time.perf_counter()
-                    break
-                if proc.poll() is not None:
-                    break
-                time.sleep(0.02)
+            # Ping answers from the IPC accept loop, which starts before the Qt
+            # main loop; wait for the daemon to be fully settled so this metric
+            # is a true hot-keybind latency, not residual startup.
+            time.sleep(2)
+            start = time.perf_counter()
+            _capture_send(sock, "capture-fullscreen")
+            shot_at = _wait_shot(history, timeout_s)
             if shot_at:
-                print(f"capture_ms = {(shot_at - start) * 1000:.0f} (keybind → screenshot saved)")
+                print(f"capture_ms = {(shot_at - start) * 1000:.0f} (hot: keybind → screenshot saved)")
             else:
                 print("capture_ms = timed out (no screenshot landed in history)")
-            ipc.send_command(str(sock), "quit")
-            try:
-                proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
+            _stop_daemon(proc, sock)
+        finally:
+            if proc.poll() is None:
                 proc.kill()
+    finally:
+        shutil.rmtree(td, ignore_errors=True)
+
+
+def bench_capture_cold(timeout_s=15):
+    """Cold end-to-end latency: no daemon running, keybind→saved-shot.
+
+    The stopwatch starts at process spawn and the capture command is retried
+    until the IPC socket accepts it, so the full daemon cold start (the G3
+    target) is included. Same end marker as the hot metric.
+    """
+    if not os.environ.get("WAYLAND_DISPLAY") and not os.environ.get("WAYLAND_SOCKET"):
+        print("cold_capture_ms = skipped (no Wayland session)")
+        return
+    td = Path(tempfile.mkdtemp(prefix="chamelshot-bench-"))
+    try:
+        start = time.perf_counter()
+        proc, sock, history = _capture_env(td)
+        try:
+            deadline = time.monotonic() + timeout_s
+            sent = False
+            while time.monotonic() < deadline:
+                if _capture_send(sock, "capture-fullscreen"):
+                    sent = True
+                    break
+                if proc.poll() is not None:
+                    print("cold_capture_ms = failed (daemon exited early)")
+                    return
+                time.sleep(0.05)
+            if not sent:
+                print("cold_capture_ms = timed out (IPC never accepted)")
+                return
+            shot_at = _wait_shot(history, timeout_s)
+            if shot_at:
+                print(f"cold_capture_ms = {(shot_at - start) * 1000:.0f} (cold: keybind → screenshot saved)")
+            else:
+                print("cold_capture_ms = timed out (no screenshot landed in history)")
+            _stop_daemon(proc, sock)
         finally:
             if proc.poll() is None:
                 proc.kill()
@@ -272,7 +325,7 @@ def main():
         "what",
         nargs="?",
         default="all",
-        choices=["all", "version", "imports", "gui_import", "daemon", "capture", "wheel"],
+        choices=["all", "version", "imports", "gui_import", "daemon", "capture", "capture_cold", "wheel"],
     )
     parser.add_argument("--live", action="store_true", help="run the daemon on the real session (tray icon + launcher)")
     args = parser.parse_args()
@@ -282,7 +335,8 @@ def main():
     if isinstance(sys.stdout, io.TextIOWrapper):
         sys.stdout.reconfigure(line_buffering=True)
 
-    steps = ["version", "imports", "gui_import", "daemon", "capture", "wheel"] if args.what == "all" else [args.what]
+    all_steps = ["version", "imports", "gui_import", "daemon", "capture", "capture_cold", "wheel"]
+    steps = all_steps if args.what == "all" else [args.what]
     for step in steps:
         if step == "version":
             bench_version()
@@ -294,6 +348,8 @@ def main():
             bench_daemon(live=args.live)
         elif step == "capture":
             bench_capture()
+        elif step == "capture_cold":
+            bench_capture_cold()
         elif step == "wheel":
             bench_wheel()
 

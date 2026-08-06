@@ -6,6 +6,15 @@ All notable changes to ChamelShot.
 
 ### Added
 
+- **Always-hot daemon (G3)** — `chamelshot --install-service` /
+  `--remove-service` install a systemd user unit
+  (`~/.config/systemd/user/chamelshot.service`, `Restart=on-failure`,
+  `graphical-session.target`) and enable+start it; the unit template ships in
+  `packaging/chamelshot.service` for packagers. `--install-autostart` now pins
+  the resolved binary path (was the literal `chamelshot`, which broke for
+  AppImage/venv installs). README documents autostart as the recommended
+  keep-alive path. Measured with the G2 harness on niri: hot keybind
+  ≈ 0.5 s vs cold ≈ 1.2 s — an always-hot daemon saves ~0.6 s per capture.
 - **Automatic app-menu entry (D-series)** — pip/venv/pipx installs now get a
   launcher entry (`~/.local/share/applications/chamelshot.desktop`) with icon,
   created on first start and pinned to the real binary path. System-wide pip

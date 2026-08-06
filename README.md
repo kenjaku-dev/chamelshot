@@ -104,9 +104,35 @@ chamelshot --test-tray              # pop the tray menu (diagnose tray issues)
 chamelshot --open-history           # open the screenshot history folder
 chamelshot --version                # print version
 chamelshot -h, --help               # all options
-chamelshot --install-autostart      # add to XDG autostart
+chamelshot --install-autostart      # run the daemon at login (recommended)
 chamelshot --remove-autostart       # remove from XDG autostart
+chamelshot --install-service        # install + start a systemd user service
+chamelshot --remove-service         # stop + remove the systemd user service
 ```
+
+### Run at login (recommended)
+
+The Print key only feels instant when the daemon is already running: a cold
+keybind pays ~1.2 s (daemon start + capture) versus ~0.5 s when the daemon is
+hot. Keep it always running with either:
+
+**Option 1 — XDG autostart (recommended, works everywhere):**
+```sh
+chamelshot --install-autostart
+```
+
+**Option 2 — systemd user service (tray + waybar, auto-restart):**
+```sh
+chamelshot --install-service
+# if your compositor does not import the session env into user services:
+systemctl --user import-environment WAYLAND_DISPLAY XDG_RUNTIME_DIR
+systemctl --user restart chamelshot
+```
+
+The service unit lives at `~/.config/systemd/user/chamelshot.service` with
+`Restart=on-failure`; it starts with `graphical-session.target`. The IPC
+single-instance check still applies, so an autostart entry and the service
+running at once simply dedupe.
 
 ### Keybindings (Wayland compositor)
 

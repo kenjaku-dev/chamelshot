@@ -86,6 +86,30 @@ def test_monitor_menu_item_focused_and_monitors(tmp_path, monkeypatch):
     assert children[0]["label"] == "  \u2318  [0] Focused"
     labels = [c["label"] for c in children[1:]]
     assert any("DP-2" in label and "Dell" in label and "U2723" in label for label in labels)
+    tooltips = {c["tooltip"] for c in children[1:]}
+    assert "Dell U2723 (DP-2)" in tooltips
+    assert "Link 0x0001 (HDMI-A-1)" in tooltips
+
+
+def test_monitor_label_short_unchanged():
+    from main import _monitor_label
+
+    assert _monitor_label(1, "HDMI-A-1", "Dell U2723") == "  \U0001f5b5  [1] Dell U2723 (HDMI-A-1)"
+
+
+def test_monitor_label_elision_respects_max_len():
+    from main import _MONITOR_LABEL_MAX, _monitor_label
+
+    descr = "A Very Long Manufacturer Model Description That Overflows"
+    label = _monitor_label(2, "DP-2", descr)
+    assert len(label) <= _MONITOR_LABEL_MAX
+    assert label.endswith(" (DP-2)")
+    assert "DP-2" in label
+    assert "A Very Long Manufacturer" in label
+    assert "\u2026" in label
+    short = _monitor_label(1, "eDP-1", "Integrated")
+    assert len(short) <= _MONITOR_LABEL_MAX
+    assert "\u2026" not in short
 
 
 def test_monitor_menu_item_focused_only_without_monitors(tmp_path, monkeypatch):

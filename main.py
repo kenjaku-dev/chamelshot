@@ -125,6 +125,26 @@ def _make_pixmap() -> QPixmap:
     return pm
 
 
+_MONITOR_LABEL_MAX = 48
+
+
+def _monitor_label(idx: int, name: str, descr: str, max_len: int = _MONITOR_LABEL_MAX) -> str:
+    """Build a monitor submenu label, eliding the description if it overflows.
+
+    The output name always survives: it identifies the monitor in the menu and
+    is what the capture uses, so it is kept as a visible suffix ("…" marks the
+    elision). Pure string math so the tests pin it without a display.
+    """
+    head = f"  \U0001f5b5  [{idx}] {descr}"
+    suffix = f" ({name})"
+    if len(head) + len(suffix) <= max_len:
+        return head + suffix
+    keep = max_len - len(suffix) - 1
+    if keep < 8:
+        return head[: max_len - 1] + "\u2026"
+    return head[:keep] + "\u2026" + suffix
+
+
 _LAUNCHER_STYLE = """
     QWidget { background: #161617; color: #d4d4d8; }
     QLabel#title {
@@ -290,7 +310,8 @@ class ChamelShotApp:
             descr = " ".join(part for part in (make, model) if part)
             children.append(
                 {
-                    "label": f"  \U0001f5b5  [{idx}] {descr} ({name})",
+                    "label": _monitor_label(idx, name, descr),
+                    "tooltip": f"{descr} ({name})",
                     "callback": lambda n=name: _capture_one(n),
                 }
             )

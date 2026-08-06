@@ -229,10 +229,12 @@ class DbusMenu:
 
     Item entries produced by ``builder`` are dicts:
       {"label": str, "callback": callable | None, "type": "standard"|"separator",
-       "children": [same-typed dicts] | None}
+       "children": [same-typed dicts] | None, "tooltip": str | None}
     A missing/None callback yields a disabled item (e.g. "No screenshots").
     Items with children are rendered as submenus: ``children-display: submenu``
     and GetLayout returns their nested children under their own parent id.
+    An optional ``tooltip`` is exposed on the wire as the (non-standard,
+    host-ignored-if-unsupported) ``tooltip-text`` property.
     """
 
     def __init__(self, connection: Gio.DBusConnection, path: str, builder):
@@ -300,8 +302,10 @@ class DbusMenu:
             "enabled": ("b", True if is_submenu else item.get("callback") is not None),
             "visible": ("b", True),
             "type": ("s", "standard"),
-            "label-display": ("s", "text"),
         }
+        tooltip = item.get("tooltip")
+        if tooltip:
+            props["tooltip-text"] = ("s", tooltip)
         if is_submenu:
             props["children-display"] = ("s", "submenu")
         return props

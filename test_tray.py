@@ -98,7 +98,7 @@ loop.run()
 
 
 FULL_SPEC = [
-    {"label": "  \u25a6  Show Interface", "callback": "show-interface"},
+    {"label": "  \u25a6  Show Interface", "callback": "show-interface", "tooltip": "Open the interface"},
     {"type": "separator"},
     {"label": "  \u25fb  Capture Region", "callback": "region"},
     {"label": "  \u25ad  Capture Window", "callback": "window"},
@@ -195,12 +195,23 @@ def test_get_layout_item_props(menu_server):
         "sep = children[1][1]\n"
         "disabled = children[6][1]\n"
         "RESULT = {'label': item1['label'], 'item1_enabled': bool(item1['enabled']),\n"
-        "          'sep_type': sep['type'], 'disabled_enabled': bool(disabled['enabled'])}"
+        "          'sep_type': sep['type'], 'disabled_enabled': bool(disabled['enabled']),\n"
+        "          'tooltip': item1.get('tooltip-text', '<missing>')}"
     )
     assert result["label"] == "  \u25a6  Show Interface"
     assert result["item1_enabled"] is True
     assert result["sep_type"] == "separator"
     assert result["disabled_enabled"] is False
+    assert result["tooltip"] == "Open the interface"
+
+
+def test_tooltip_absent_when_not_set(menu_server):
+    result = _client(
+        "_, layout = iface.GetLayout(0, -1, dbus.Array([], signature='s'))\n"
+        "sep = list(layout[2])[1][1]\n"
+        "RESULT = {'tooltip': sep.get('tooltip-text', '<missing>')}"
+    )
+    assert result["tooltip"] == "<missing>"
 
 
 def test_event_dispatch(menu_server):

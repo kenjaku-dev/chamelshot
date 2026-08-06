@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import override
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QImage, QKeySequence, QPixmap, QShortcut
@@ -22,10 +23,12 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSlider,
     QStackedWidget,
     QVBoxLayout,
@@ -163,6 +166,18 @@ ACTION_STYLE = f"""
 """
 
 
+def _zoom_fit(w: int, h: int, avail_w: int, avail_h: int, max_w: int = 800) -> tuple[int, int]:
+    """Largest (w', h') fitting in avail_w×avail_h with w' ≤ max_w, aspect kept.
+
+    Never upscales and never returns a zero dimension. Pure integer math so
+    the zoom behavior is pinned by tests without a display.
+    """
+    if w <= 0 or h <= 0:
+        return (w, h)
+    scale = min(1.0, avail_w / w, avail_h / h, max_w / max(w, h))
+    return (max(1, int(w * scale)), max(1, int(h * scale)))
+
+
 class PreviewWindow(QWidget):
     def __init__(
         self,
@@ -189,21 +204,11 @@ class PreviewWindow(QWidget):
 
         win_w = self.cfg.get("preview.window_width", 600)
         win_h = self.cfg.get("preview.window_height", 450)
+        self._zoom_100 = False
         self.setMinimumSize(400, 300)
         self.resize(win_w, win_h)
 
         layout = QVBoxLayout(self)
-
-        max_w = self.cfg.get("preview.max_width", 800)
-        w, h = pixmap.width(), pixmap.height()
-        display = pixmap
-        if w > max_w or h > max_w:
-            display = pixmap.scaled(
-                max_w,
-                max_w,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
 
         self.stack = QStackedWidget()
 
@@ -212,10 +217,15 @@ class PreviewWindow(QWidget):
         pc_layout.setContentsMargins(0, 0, 0, 0)
         pc_layout.setSpacing(0)
 
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.scroll_area.setWidgetResizable(True)
+
         self.preview_label = QLabel()
-        self.preview_label.setPixmap(display)
         self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        pc_layout.addWidget(self.preview_label, 1)
+        self.scroll_area.setWidget(self.preview_label)
+        pc_layout.addWidget(self.scroll_area, 1)
 
         self.action_overlay = QWidget()
         self.action_overlay.setStyleSheet(f"background: {t.CHROME_TILE_BG}; border-radius: {t.RADIUS};")
@@ -285,6 +295,12 @@ class PreviewWindow(QWidget):
         btn_capture = QPushButton("New Capture")
         btn_capture.clicked.connect(self.new_capture)
         btn_layout.addWidget(btn_capture)
+        self.btn_zoom = QPushButton("Fit")
+        self.btn_zoom.setToolTip("Toggle 1:1 zoom (Z) / fit window (F)")
+        self.btn_zoom.clicked.connect(self._toggle_zoom)
+        btn_layout.addWidget(self.btn_zoom)
+        self.lbl_resolution = QLabel()
+        btn_layout.addWidget(self.lbl_resolution)
         btn_layout.addStretch()
         btn_annotate = QPushButton("Annotate")
         btn_annotate.clicked.connect(self._show_annotator)
@@ -304,6 +320,17 @@ class PreviewWindow(QWidget):
 
         self._bind_shortcuts()
         self._apply_auto_actions()
+        self._update_preview_display()
+
+    def _toggle_zoom(self):
+        self._zoom_100 = not self._zoom_100
+        self._update_preview_display()
+
+    @override
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if not self._zoom_100 and getattr(self, "btn_zoom", None) is not None:
+            self._update_preview_display()
 
     def _pin(self):
         from pin import PinStore, PinWindow
@@ -333,6 +360,12 @@ class PreviewWindow(QWidget):
                 ks = QKeySequence.fromString(raw)
                 if not ks.isEmpty():
                     QShortcut(ks, self).activated.connect(fn)
+        QShortcut(QKeySequence("Z"), self).activated.connect(self._toggle_zoom)
+        QShortcut(QKeySequence("F"), self).activated.connect(lambda: self._set_zoom_fit())
+
+    def _set_zoom_fit(self):
+        self._zoom_100 = False
+        self._update_preview_display()
 
     def _apply_auto_actions(self):
         if self.cfg.get("general.auto_save"):
@@ -477,17 +510,37 @@ class PreviewWindow(QWidget):
         self._show_preview()
 
     def _update_preview_display(self):
-        max_w = self.cfg.get("preview.max_width", 800)
+        """Refresh the label for the current zoom state.
+
+        100% shows the raw pixels (scrollable); Fit scales down to the viewport
+        but never exceeds preview.max_width, so a huge capture doesn't force
+        the image larger than the configured ceiling on an oversized window.
+        """
         w, h = self.pixmap.width(), self.pixmap.height()
-        display = self.pixmap
-        if w > max_w or h > max_w:
-            display = self.pixmap.scaled(
-                max_w,
-                max_w,
+        self.lbl_resolution.setText(f"{w} × {h}")
+        if self._zoom_100:
+            self.scroll_area.setWidgetResizable(False)
+            self.preview_label.setPixmap(self.pixmap)
+            self.btn_zoom.setText("100%")
+            return
+        self.scroll_area.setWidgetResizable(True)
+        vs = self.scroll_area.viewport().size()
+        avail_w, avail_h = vs.width(), vs.height()
+        if avail_w <= 0 or avail_h <= 0:
+            avail_w, avail_h = max(1, self.width() - 16), max(1, self.height() - 140)
+        fw, fh = _zoom_fit(w, h, avail_w, avail_h, self.cfg.get("preview.max_width", 800))
+        display = (
+            self.pixmap
+            if (fw, fh) == (w, h)
+            else self.pixmap.scaled(
+                fw,
+                fh,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation,
             )
+        )
         self.preview_label.setPixmap(display)
+        self.btn_zoom.setText("Fit")
 
     def _quick_save(self, close=True):
         try:

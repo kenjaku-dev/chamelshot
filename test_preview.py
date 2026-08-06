@@ -211,3 +211,24 @@ def test_save_notifies_with_image_hint(tmp_path, monkeypatch):
     w._save_async(fake_img, "/tmp/shot.png", "PNG", -1, close=False)
     assert Path(saved_to["path"]) == Path("/tmp/shot.png")
     w._notify.assert_called_once_with("Saved to /tmp/shot.png", image="/tmp/shot.png")
+
+
+def test_zoom_fit_never_upscales():
+    assert prv._zoom_fit(400, 300, 1200, 900) == (400, 300)
+
+
+def test_zoom_fit_scales_down_to_viewport_keeping_aspect():
+    w, h = prv._zoom_fit(3840, 2160, 800, 500)
+    assert w <= 800 and h <= 500
+    assert round(w / h, 3) == round(3840 / 2160, 3)
+
+
+def test_zoom_fit_respects_max_width_cap():
+    w, h = prv._zoom_fit(3840, 2160, 2000, 1500, max_w=800)
+    assert max(w, h) <= 800
+    assert round(w / h, 3) == round(3840 / 2160, 3)
+
+
+def test_zoom_fit_never_zero_on_tiny_viewport():
+    w, h = prv._zoom_fit(100, 50, 2, 2)
+    assert w >= 1 and h >= 1

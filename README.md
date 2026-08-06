@@ -144,7 +144,7 @@ bind = CTRL, Print, exec, chamelshot --settings
 - **Monitor** — pick a specific monitor (or the focused one) for multi-output setups
 - **Delay** — configurable countdown overlay (0-60s) for menus, tooltips, or hover states
 
-### Annotation Tools (9 tools)
+### Annotation Tools (11 tools)
 | Tool | Description |
 |------|-------------|
 | Pen | Freehand drawing |
@@ -156,8 +156,10 @@ bind = CTRL, Print, exec, chamelshot --settings
 | Text | Click-to-type label (custom font size) |
 | Numbering | Auto-incrementing numbered circles (1, 2, 3…) |
 | Blur | Pixelation box with adjustable radius |
+| Eraser | Freehand eraser that restores the source image |
+| Crop | Drag a box, `Enter` crops / `Escape` cancels (undoable) |
 
-**Shortcuts:** `Ctrl+Z` undo, `Ctrl+Y` redo, `Escape` cancel current annotation
+**Shortcuts:** `Ctrl+Z` undo, `Ctrl+Y` redo, `Escape` cancel current annotation/selection, `Enter` commit crop
 
 ### Preview Window
 - View, annotate, save, or copy to clipboard (including primary selection for middle-click paste)

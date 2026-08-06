@@ -10,6 +10,7 @@ from PySide6.QtGui import (
     QImage,
     QPainter,
     QPainterPath,
+    QPainterPathStroker,
     QPen,
     QPixmap,
 )
@@ -25,7 +26,40 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-TOOLS = ["pen", "highlighter", "arrow", "rect", "circle", "line", "text", "numbering", "blur"]
+TOOLS = ["pen", "highlighter", "arrow", "rect", "circle", "line", "text", "numbering", "blur", "eraser", "crop"]
+
+
+def normalize_rect(x1: float, y1: float, x2: float, y2: float) -> tuple[float, float, float, float]:
+    """Order two corners into (left, top, right, bottom)."""
+    return (min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2))
+
+
+def clamp_rect_to_source(left: float, top: float, right: float, bottom: float, width: float, height: float):
+    """Clip a rect to source bounds; None when nothing survives."""
+    left = max(0.0, min(left, width))
+    top = max(0.0, min(top, height))
+    right = max(0.0, min(right, width))
+    bottom = max(0.0, min(bottom, height))
+    if right - left < 1 or bottom - top < 1:
+        return None
+    return (left, top, right, bottom)
+
+
+def crop_from_points(points: list, width: float, height: float):
+    """Normalized, source-clamped crop rect from two drag corners (x, y) tuples."""
+    if len(points) < 2:
+        return None
+    (x1, y1), (x2, y2) = points[0], points[-1]
+    return clamp_rect_to_source(*normalize_rect(x1, y1, x2, y2), width, height)
+
+
+def thin_points(points: list, min_manhattan: float = 2.0) -> list:
+    """Drop points closer than min_manhattan (Manhattan) to their predecessor."""
+    result = []
+    for pt in points:
+        if not result or abs(pt[0] - result[-1][0]) + abs(pt[1] - result[-1][1]) >= min_manhattan:
+            result.append(pt)
+    return result
 
 
 @dataclass
@@ -107,6 +141,8 @@ class AnnotationCanvas(QWidget):
             "text": Qt.CursorShape.IBeamCursor,
             "numbering": Qt.CursorShape.CrossCursor,
             "blur": Qt.CursorShape.CrossCursor,
+            "eraser": Qt.CursorShape.CrossCursor,
+            "crop": Qt.CursorShape.CrossCursor,
         }
         self.setCursor(cursors.get(self.tool, Qt.CursorShape.ArrowCursor))
 
@@ -147,18 +183,38 @@ class AnnotationCanvas(QWidget):
         p.drawPixmap(0, 0, self.source)
         self._paint_annotations(p, result.size(), 1.0)
         p.end()
+        for ann in self.annotations:
+            if ann.tool == "crop" and len(ann.points) >= 2:
+                rect = crop_from_points(
+                    [(ann.points[0].x(), ann.points[0].y()), (ann.points[-1].x(), ann.points[-1].y())],
+                    result.width(),
+                    result.height(),
+                )
+                if rect:
+                    left, top, right, bottom = rect
+                    result = result.copy(QRectF(left, top, right - left, bottom - top).toRect())
         return result
 
     def keyPressEvent(self, event):  # noqa: N802
         if event.key() == Qt.Key.Key_Escape and self.current is not None:
             self.current = None
             self.update()
+        elif event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and self.tool == "crop" and self.current is not None:
+            self._commit_crop()
         elif event.modifiers() == Qt.KeyboardModifier.ControlModifier:
             if event.key() == Qt.Key.Key_Z and not event.isAutoRepeat():
                 self.undo()
             elif event.key() == Qt.Key.Key_Y and not event.isAutoRepeat():
                 self.redo()
         super().keyPressEvent(event)
+
+    def _commit_crop(self):
+        if self.current is None or len(self.current.points) < 2:
+            return
+        self._save_state()
+        self.annotations.append(self.current)
+        self.current = None
+        self.update()
 
     def paintEvent(self, event):  # noqa: N802
         p = QPainter(self)
@@ -202,6 +258,13 @@ class AnnotationCanvas(QWidget):
                         p.strokePath(path, hl_pen)
                     else:
                         p.strokePath(path, pen)
+            elif ann.tool == "eraser" and len(ann.points) > 1:
+                self._paint_eraser(p, ann, scale)
+            elif ann.tool == "crop" and len(ann.points) >= 2:
+                rect = QRectF(ann.points[0], ann.points[1]).normalized()
+                p.setPen(QPen(ann.color, max(1, ann.width * (1 / scale)), Qt.PenStyle.DashLine))
+                p.setBrush(Qt.BrushStyle.NoBrush)
+                p.drawRect(rect)
             elif ann.tool == "arrow" and len(ann.points) >= 2:
                 self._paint_arrow(p, ann, pen)
             elif ann.tool in ("rect", "circle") and len(ann.points) >= 2:
@@ -244,6 +307,24 @@ class AnnotationCanvas(QWidget):
         blurred = _box_blur(region, max(1, ann.blur_radius))
         p.drawImage(rect.topLeft(), blurred)
 
+    def _paint_eraser(self, p: QPainter, ann: Annotation, scale: float):
+        """Erase painted pixels by stroking the source image back over the stroke path."""
+        if len(ann.points) < 2:
+            return
+        path = QPainterPath()
+        path.moveTo(ann.points[0])
+        for pt in ann.points[1:]:
+            path.lineTo(pt)
+        stroker = QPainterPathStroker()
+        stroker.setWidth(max(2, ann.width * (1 / scale)))
+        stroker.setCapStyle(Qt.PenCapStyle.RoundCap)
+        stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        stroke = stroker.createStroke(path)
+        p.save()
+        p.setClipPath(stroke)
+        p.drawPixmap(0, 0, self.source)
+        p.restore()
+
     def _paint_arrow(self, p: QPainter, ann: Annotation, pen: QPen):
         a, b = ann.points[0], ann.points[-1]
         p.setPen(pen)
@@ -266,7 +347,8 @@ class AnnotationCanvas(QWidget):
     def mousePressEvent(self, event):  # noqa: N802
         if event.button() != Qt.MouseButton.LeftButton:
             return
-        self._save_state()
+        if self.tool != "crop":
+            self._save_state()
         pos = self._map_to_source(event.position())
         ann = Annotation(tool=self.tool, color=QColor(self.color), width=self.pen_width)
         if self.tool == "text":
@@ -295,9 +377,16 @@ class AnnotationCanvas(QWidget):
         if self.current is None:
             return
         pos = self._map_to_source(event.position())
-        if self.tool == "pen":
+        if self.tool in ("pen", "eraser"):
             pts = self.current.points
-            if not pts or (pos - pts[-1]).manhattanLength() >= 2.0:
+            if not pts:
+                pts.append(pos)
+                self.update()
+                return
+            kept = thin_points(
+                [(pts[-1].x(), pts[-1].y()), (pos.x(), pos.y())],
+            )
+            if len(kept) == 2:
                 self.current.points.append(pos)
         else:
             if len(self.current.points) >= 2:
@@ -311,9 +400,12 @@ class AnnotationCanvas(QWidget):
             return
         if self.tool != "pen" and len(self.current.points) > 1:
             self.current.points[-1] = self._map_to_source(event.position())
+        if self.tool == "crop":
+            self.update()
+            return
         if self.current.points:
             self.annotations.append(self.current)
-            if self.current.tool == "pen" and len(self.current.points) < 2:
+            if self.current.tool in ("pen", "eraser") and len(self.current.points) < 2:
                 self.annotations.pop()
         self.current = None
         self.update()
@@ -357,6 +449,8 @@ TOOL_GLYPH = {
     "text": "T",
     "numbering": "No.",
     "blur": "Blur",
+    "eraser": "Ers",
+    "crop": "Crop",
 }
 
 

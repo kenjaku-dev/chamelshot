@@ -16,7 +16,9 @@ button must render at full sizeHint size and fully inside the window.
 
 import os
 
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+# Force offscreen: the session may export QT_QPA_PLATFORM=wayland, and focus
+# grant/deny then depends on compositor state, making these tests flaky.
+os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 import pytest
 from PySide6.QtWidgets import QApplication, QPushButton, QWidget

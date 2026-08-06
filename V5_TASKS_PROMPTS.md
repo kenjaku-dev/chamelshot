@@ -225,6 +225,120 @@ first.
 
 ---
 
+## E. UI bug fixes (broken elements)
+
+### E1. Launcher window clips buttons on scaled/HiDPI displays
+- **Skill:** `/diagnosing-bugs`
+- **Prompt:**
+```
+main.py launcher uses setFixedSize(280, 290) + fixed 13px QSS while its
+buttons grow with font/DPI (fractional Wayland scale, QT_FONT_DPI). Verify
+the overflow (run with QT_FONT_DPI=144), then make the window layout-driven:
+drop the fixed size, use sizeHint()/adjustSize() after populating, keep
+_LAUNCHER_STYLE's visual identity. No behavior changes. Full test suite.
+```
+
+### E2. History dialog: empty-state item hijacks keyboard shortcuts
+- **Skill:** `/diagnosing-bugs`
+- **Prompt:**
+```
+history.py _refresh() inserts a "No screenshots yet" QListWidgetItem with
+NoItemFlags when the history is empty and then calls
+setCurrentItem(self.list.item(0)), so the dead placeholder ends up "current":
+Enter/C/Del hit it and do nothing visible, and it looks focusable. Fix:
+only setCurrentItem when real entries exist (never the placeholder), keep
+Esc working in both states, and add empty-vs-nonempty coverage in
+test_history.py.
+```
+
+### E3. Pin window blends into dark wallpapers; no resize affordance
+- **Skill:** `/polish`
+- **Prompt:**
+```
+pin.py PinWindow is frameless with no border/shadow: a dark screenshot pinned
+over a dark desktop is nearly invisible and can't be resized (only dragged),
+so it's indistinguishable from a stray window. Add: a subtle border + drop
+shadow consistent with PIN_BAR_STYLE, a QSizeGrip corner handle (or drag-from-
+edge), keeping Escape / bar Close semantics. Don't touch the PinStore model.
+```
+
+### E4. Settings: invalid/duplicate shortcuts accepted silently
+- **Skill:** `/diagnosing-bugs`
+- **Prompt:**
+```
+settings.py _shortcuts_tab accepts any free text: unparsable strings and
+duplicates (two actions bound to the same key) save without feedback. Add a
+pure validate_shortcuts(config) -> list[str] helper in config.py (mirroring
+validate_save_settings), use it in the dialog to warn inline and block Save
+when fatal, and unit-test the helper (duplicate detection, invalid
+QKeySequence). No changes to shortcut execution.
+```
+
+### E5. Long monitor names / many outputs overflow the tray menu
+- **Skill:** `/polish`
+- **Prompt:**
+```
+main.py _monitor_menu_item builds "[idx] descr (name)" labels with no
+truncation; with several outputs the dbusmenu items become huge and get
+clipped by the bar. Elide long labels (e.g. "DP-1 ... Model X" with "…") to a
+sane width, keep the full output name in a tooltip, preserve sort order, and
+keep the tray wire format valid (test_tray.py must stay green).
+```
+
+---
+
+## F. UI improvements
+
+### F1. Centralize the dark theme — one QSS source of truth
+- **Skill:** `/audit` → `/implement`
+- **Prompt:**
+```
+The same palette (#161617 bg, #1f1f22 panels, #2563eb accent, etc.) is
+copy-pasted across main._LAUNCHER_STYLE, history._STYLE, pin.PIN_BAR_STYLE,
+preview.py, settings.py and editor.py stylesheets and has drifted (radii,
+paddings, hover colors differ). First grep all `#[0-9a-fA-F]{6}` hex values in
+*.py and report the drift; then extract theme.py with shared QSS constants
+(colors/radii/paddings/hover states) and refactor every stylesheet to use it.
+Visual diff must be no-op or a deliberate fix. Full suite.
+```
+
+### F2. Preview window: zoom controls (fit / 100%) + resolution label
+- **Skill:** `/shape` → `/implement`
+- **Prompt:**
+```
+PreviewWindow shows only the scaled thumbnail — users can't inspect pixel
+detail before annotating. Add: a 100% (1:1, scrollable) toggle and a Fit
+toggle, a "WxH" resolution label in the title or a status row, and keyboard
+shortcuts (Z / F). Keep the existing PreviewWindow layout and action bar;
+unit-test only pure zoom math (none if no seam exists).
+```
+
+### F3. History dialog live-refresh + non-blocking thumbnails
+- **Skill:** `/implement`
+- **Prompt:**
+```
+history.py snapshots the folder once in _refresh(): captures taken while the
+dialog stays open (daemon running) don't appear until reopen, and QPixmap
+loading on the UI thread freezes the dialog on large screenshots. Add: a
+QTimer refresh (~2s, only while visible) that diffs against _entries to avoid
+flicker and keeps the current selection if it still exists; move thumbnail
+load to a worker via dispatcher.run_async. Keep keyboard shortcuts intact.
+```
+
+### F4. Launcher: keyboard mnemonics + reliable focus on Wayland
+- **Skill:** `/polish`
+- **Prompt:**
+```
+main.py launcher buttons have no shortcuts and, when opened via tray/IPC on
+Wayland, may not get keyboard focus (menu workaround exists for the tray menu
+only). Add: mnemonics (Region=Alt+R, Window=Alt+W, Fullscreen=Alt+F,
+Monitor=Alt+M) via &-prefixed labels, and make _show_launcher
+activateWindow()+setFocus() reliably under niri. Verify with the running
+daemon on the live session.
+```
+
+---
+
 ## Suggested execution order
 
 1. A1–A6 (bug fixes — each 1 commit, run full suite after each)
@@ -236,3 +350,6 @@ first.
    - B2/B3 (history UX)
    - C5 (eraser/crop)
 3. D1 review branch → D2 pre-commit → release flow (tag v5.0.0)
+4. UI pass (after v5.0.0 shipped): E1–E5 bug fixes first (each 1 commit),
+   then F1 theme centralization (do before F2–F4 so styles don't drift),
+   F2 zoom, F3 live history refresh, F4 launcher focus/mnemonics.

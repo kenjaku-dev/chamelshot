@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import pytest
 
@@ -129,6 +130,73 @@ def test_autostart_install_remove(monkeypatch, tmp_path):
     assert "Exec=chamelshot" in content
     cfg.remove_autostart()
     assert not cfg.autostart_enabled()
+
+
+def test_desktop_install_remove(monkeypatch, tmp_path):
+    apps = tmp_path / "applications"
+    icons = tmp_path / "icons"
+    icon_src = tmp_path / "icon.png"
+    icon_src.write_bytes(b"PNGDATA")
+    monkeypatch.setattr(cfg, "DESKTOP_PATH", apps / "chamelshot.desktop")
+    monkeypatch.setattr(cfg, "ICON_DEST_DIR", icons)
+    monkeypatch.setattr(cfg, "ICON_SOURCE", icon_src)
+    assert not cfg.desktop_installed()
+    cfg.ensure_desktop("/home/u/.local/bin/chamelshot")
+    assert cfg.desktop_installed()
+    content = (apps / "chamelshot.desktop").read_text()
+    assert "Exec=/home/u/.local/bin/chamelshot" in content
+    assert "Icon=chamelshot" in content
+    assert (icons / "chamelshot.png").read_bytes() == b"PNGDATA"
+    cfg.remove_desktop()
+    assert not cfg.desktop_installed()
+
+
+def test_desktop_icon_from_prefix_fallback(monkeypatch, tmp_path):
+    apps = tmp_path / "applications"
+    icons = tmp_path / "icons"
+    prefix_icon = tmp_path / "prefix_icon.png"
+    prefix_icon.write_bytes(b"PREFIXPNG")
+    monkeypatch.setattr(cfg, "DESKTOP_PATH", apps / "chamelshot.desktop")
+    monkeypatch.setattr(cfg, "ICON_DEST_DIR", icons)
+    monkeypatch.setattr(cfg, "ICON_SOURCE", tmp_path / "missing.png")
+    monkeypatch.setattr(
+        cfg,
+        "_icon_source",
+        lambda: prefix_icon,
+    )
+    cfg.ensure_desktop("/bin/chamelshot")
+    assert (icons / "chamelshot.png").read_bytes() == b"PREFIXPNG"
+
+
+def test_desktop_rewrites_when_binary_moves(monkeypatch, tmp_path):
+    apps = tmp_path / "applications"
+    icons = tmp_path / "icons"
+    icon_src = tmp_path / "icon.png"
+    icon_src.write_bytes(b"PNGDATA")
+    monkeypatch.setattr(cfg, "DESKTOP_PATH", apps / "chamelshot.desktop")
+    monkeypatch.setattr(cfg, "ICON_DEST_DIR", icons)
+    monkeypatch.setattr(cfg, "ICON_SOURCE", icon_src)
+    cfg.ensure_desktop("/old/bin/chamelshot")
+    cfg.ensure_desktop("/new/bin/chamelshot")
+    content = (apps / "chamelshot.desktop").read_text()
+    assert "Exec=/new/bin/chamelshot" in content
+    assert "Exec=/old/bin/chamelshot" not in content
+
+
+def test_desktop_idempotent_no_rewrite(monkeypatch, tmp_path):
+    apps = tmp_path / "applications"
+    icons = tmp_path / "icons"
+    icon_src = tmp_path / "icon.png"
+    icon_src.write_bytes(b"PNGDATA")
+    monkeypatch.setattr(cfg, "DESKTOP_PATH", apps / "chamelshot.desktop")
+    monkeypatch.setattr(cfg, "ICON_DEST_DIR", icons)
+    monkeypatch.setattr(cfg, "ICON_SOURCE", icon_src)
+    writes = []
+    orig_write = Path.write_text
+    monkeypatch.setattr(Path, "write_text", lambda self, *a, **k: (writes.append(self), orig_write(self, *a, **k)))
+    cfg.ensure_desktop("/bin/chamelshot")
+    cfg.ensure_desktop("/bin/chamelshot")
+    assert len(writes) == 1
 
 
 def test_generate_save_path_creates_dir(monkeypatch, tmp_path):

@@ -9,6 +9,7 @@
 import datetime
 import os
 import re
+import shutil
 import sys
 import tomllib
 from pathlib import Path
@@ -234,6 +235,69 @@ def remove_autostart():
 
 def autostart_enabled() -> bool:
     return AUTOSTART_PATH.exists()
+
+
+DESKTOP_PATH = Path.home() / ".local" / "share" / "applications" / "chamelshot.desktop"
+ICON_DEST_DIR = Path.home() / ".local" / "share" / "icons" / "hicolor" / "256x256" / "apps"
+ICON_SOURCE = Path(__file__).resolve().parent / "icon.png"
+
+
+def _icon_source() -> Path | None:
+    """Wheel data-files put the icon under sys.prefix/share/icons (pip installs),
+    while a source tree / AppImage bundle keeps it next to the modules."""
+    candidates = [
+        ICON_SOURCE,
+        Path(sys.prefix) / "share" / "icons" / "hicolor" / "256x256" / "apps" / "chamelshot.png",
+    ]
+    for cand in candidates:
+        if cand.is_file():
+            return cand
+    return None
+
+
+def _desktop_content(exec_path: str) -> str:
+    return (
+        "[Desktop Entry]\n"
+        "Type=Application\n"
+        "Name=ChamelShot\n"
+        "Comment=Screenshot capture tool for Wayland (wlroots)\n"
+        f"Exec={exec_path}\n"
+        "Icon=chamelshot\n"
+        "Categories=Utility;Graphics;\n"
+        "Terminal=false\n"
+        "StartupNotify=true\n"
+    )
+
+
+def ensure_desktop(exec_path: str):
+    """Create/patch a user app-menu entry on first run.
+
+    pip/venv/pipx installs have no post-install hook, so the .desktop file is
+    written lazily from the application itself. The Exec is pinned to the real
+    binary the user actually launched (which(1)/argv[0]), unlike a static
+    packaging entry that misses venv/pipx prefixes.
+    """
+    expected = _desktop_content(exec_path)
+    icon_dest = ICON_DEST_DIR / "chamelshot.png"
+    try:
+        if DESKTOP_PATH.read_text() == expected and icon_dest.exists():
+            return
+    except OSError:
+        pass
+    DESKTOP_PATH.parent.mkdir(parents=True, exist_ok=True)
+    DESKTOP_PATH.write_text(expected)
+    icon_src = _icon_source()
+    if icon_src is not None:
+        ICON_DEST_DIR.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(icon_src, icon_dest)
+
+
+def remove_desktop():
+    DESKTOP_PATH.unlink(missing_ok=True)
+
+
+def desktop_installed() -> bool:
+    return DESKTOP_PATH.exists()
 
 
 def generate_save_path(config: dict) -> str:

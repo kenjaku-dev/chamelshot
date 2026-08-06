@@ -2,6 +2,15 @@
 
 All notable changes to ChamelShot.
 
+## Unreleased
+
+### Added
+
+- **Automatic app-menu entry (D-series)** — pip/venv/pipx installs now get a
+  launcher entry (`~/.local/share/applications/chamelshot.desktop`) with icon,
+  created on first start and pinned to the real binary path. System-wide pip
+  installs additionally ship the entry + icon via wheel data-files.
+
 ## v5.0.0 — 2026-08-06
 
 The V5 release: monitor capture, pinning, clipboard + primary selection, a

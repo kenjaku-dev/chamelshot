@@ -753,6 +753,8 @@ def main():
 
     ipc.clean_stale_socket(cfg.IPC_SOCKET_PATH)
 
+    cfg.ensure_desktop(shutil.which("chamelshot") or sys.argv[0])
+
     if "--settings" in sys.argv:
         _load_gui()
         app = QApplication(sys.argv)

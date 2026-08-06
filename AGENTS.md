@@ -13,6 +13,7 @@ uv run pytest -q test_capture.py test_config.py   # subset, no bus needed
 uv run ruff check .                     # lint
 uv run ruff format .                    # format (run before committing)
 uv run pyright .                        # typecheck
+pre-commit install                      # local hooks: ruff, pyright, pytest
 uv run pyinstaller ...                  # see packaging/build-appimage.sh
 packaging/build-appimage.sh 4.2.0       # builds AppImage into dist/
 ```

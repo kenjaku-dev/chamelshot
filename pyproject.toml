@@ -46,7 +46,7 @@ exclude = [
 package = true
 
 [tool.setuptools]
-py-modules = ["__init__", "version", "dispatcher", "ipc", "editor", "main", "capture", "clipboard", "config", "history", "overlay", "pin", "proc", "preview", "settings", "tray"]
+py-modules = ["__init__", "version", "dispatcher", "ipc", "editor", "main", "capture", "clipboard", "config", "history", "overlay", "pin", "proc", "preview", "settings", "tray", "theme"]
 
 [tool.setuptools.data-files]
 "share/applications" = ["packaging/chamelshot.desktop"]

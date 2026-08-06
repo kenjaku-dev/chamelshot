@@ -39,9 +39,14 @@ cp -r dist/chamelshot/* "$APPDIR/usr/lib/chamelshot/"
 cp packaging/chamelshot.desktop "$APPDIR/"
 cp icon.png "$APPDIR/chamelshot.png"
 
+GI_DIR="$APPDIR/usr/lib/chamelshot/girepository-1.0"
+mkdir -p "$GI_DIR"
+find /usr/lib /usr/lib64 -path "*girepository-1.0*" -name "*.typelib" -exec cp {} "$GI_DIR/" \; 2>/dev/null || true
+
 cat > "$APPDIR/AppRun" << 'EORUN'
 #!/bin/bash
 APPDIR="$(dirname "$(readlink -f "$0")")"
+export GI_TYPELIB_PATH="$APPDIR/usr/lib/chamelshot/girepository-1.0${GI_TYPELIB_PATH:+:$GI_TYPELIB_PATH}"
 exec "$APPDIR/usr/lib/chamelshot/chamelshot" "$@"
 EORUN
 chmod +x "$APPDIR/AppRun"

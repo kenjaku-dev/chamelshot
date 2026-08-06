@@ -8,13 +8,18 @@
 
 """Unit tests for the history browser dialog logic (history.py).
 
-These avoid constructing a real HistoryDialog (needs QApplication); they drive
-the pure data/action methods on a bare instance via object.__new__, matching
-test_preview.py's pattern.
+Data/action methods run on a bare instance via object.__new__ (no Qt,
+matching test_preview.py's pattern); the two selection tests at the bottom
+use a real dialog under an offscreen QApplication.
 """
 
+import os
 from pathlib import Path
 from unittest.mock import MagicMock
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+import pytest
 
 import config as cfg
 import history as hst
@@ -63,3 +68,34 @@ def test_delete_path_missing_refreshes_without_error(tmp_path):
     d._refresh = MagicMock()
     d._delete_path(tmp_path / "ghost.png")
     d._refresh.assert_called_once()
+
+
+@pytest.fixture(scope="module")
+def qapp():
+    from PySide6.QtWidgets import QApplication
+
+    return QApplication.instance() or QApplication([])
+
+
+def test_empty_history_selects_no_item(qapp, tmp_path, monkeypatch):
+    monkeypatch.setattr(cfg, "HISTORY_DIR", tmp_path)
+    dlg = hst.HistoryDialog()
+    dlg.show()
+    qapp.processEvents()
+    assert dlg.list.count() == 1
+    assert dlg.list.item(0).flags() == hst.Qt.ItemFlag.NoItemFlags
+    assert dlg.list.currentItem() is None
+    dlg.close()
+
+
+def test_nonempty_history_selects_newest_item(qapp, tmp_path, monkeypatch):
+    monkeypatch.setattr(cfg, "HISTORY_DIR", tmp_path)
+    _seed(tmp_path, ["screenshot_20260805_120000_000.png", "screenshot_20260805_150000_000.png"])
+    dlg = hst.HistoryDialog()
+    dlg.show()
+    qapp.processEvents()
+    cur = dlg.list.currentItem()
+    assert cur is not None
+    path = cur.data(hst.Qt.ItemDataRole.UserRole)
+    assert path.name == "screenshot_20260805_150000_000.png"
+    dlg.close()

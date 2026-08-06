@@ -139,7 +139,9 @@ class HistoryDialog(QDialog):
             self.setWindowTitle("ChamelShot - History (empty)")
         else:
             self.setWindowTitle("ChamelShot - History")
-        self.list.setCurrentItem(self.list.item(0))
+            # Only select a real entry; the NoItemFlags placeholder above must
+            # never become the current item or Enter/C/Del hit a dead row.
+            self.list.setCurrentItem(self.list.item(0))
 
     def _make_item(self, path: Path) -> QListWidgetItem:
         pm = QPixmap(str(path))

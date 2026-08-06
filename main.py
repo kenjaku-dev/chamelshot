@@ -468,7 +468,11 @@ class ChamelShotApp:
         if launcher is None:
             launcher = QWidget()
             launcher.setWindowTitle(f"ChamelShot {VERSION}")
-            launcher.setFixedSize(280, 290)
+            # Layout-driven size: a hardcoded height clips the buttons when the
+            # QSS font metrics grow (Qt compresses children into the fixed
+            # rect). Pin the width for identity, derive the height from the
+            # layout once the contents are populated.
+            launcher.setFixedWidth(280)
             launcher.setStyleSheet(_LAUNCHER_STYLE)
 
             layout = QVBoxLayout(launcher)
@@ -504,6 +508,8 @@ class ChamelShotApp:
             btn_settings.clicked.connect(self._open_settings)
             layout.addWidget(btn_settings)
             self._launcher = launcher
+            launcher.adjustSize()
+            launcher.setFixedHeight(launcher.height())
 
         launcher.show()
         launcher.raise_()

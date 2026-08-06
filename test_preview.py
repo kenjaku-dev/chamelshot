@@ -15,8 +15,11 @@ drive `save()` on a bare instance via object.__new__.
 """
 
 import tempfile
+import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 import clipboard as clip
 import preview as prv
@@ -211,6 +214,40 @@ def test_save_notifies_with_image_hint(tmp_path, monkeypatch):
     w._save_async(fake_img, "/tmp/shot.png", "PNG", -1, close=False)
     assert Path(saved_to["path"]) == Path("/tmp/shot.png")
     w._notify.assert_called_once_with("Saved to /tmp/shot.png", image="/tmp/shot.png")
+
+
+@pytest.fixture(scope="module")
+def qapp():
+    from PySide6.QtWidgets import QApplication
+
+    return QApplication.instance() or QApplication([])
+
+
+def test_quick_save_writes_real_file(tmp_path, qapp, monkeypatch):
+    """Regression (found by scripts/bench.py): PySide6 6.11.1 raises ValueError
+    on img.save(path, bytes) despite the stub typing format as bytes, so the
+    auto-save worker failed silently. The real save path must write the file."""
+    from PySide6.QtGui import QPixmap
+
+    config = {
+        "save.directory": str(tmp_path),
+        "save.filename_format": "shot.png",
+        "save.format": "PNG",
+        "save.quality": -1,
+    }
+    w = _bare_preview(config)
+    pm = QPixmap(64, 48)
+    pm.fill(0x2563EB)
+    w._current_pixmap = lambda: pm
+    w._notify = lambda *a, **k: None
+    monkeypatch.setattr(prv, "_history_add", MagicMock())
+    w._quick_save(close=False)
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        if (tmp_path / "shot.png").exists():
+            break
+        qapp.processEvents()
+    assert (tmp_path / "shot.png").exists()
 
 
 def test_zoom_fit_never_upscales():

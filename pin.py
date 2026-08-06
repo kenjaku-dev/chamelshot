@@ -193,8 +193,7 @@ class PinWindow(QWidget):
         if not path:
             return
         quality = self.cfg.get("save.quality", -1)
-        fmt_bytes = fmt.encode()
-        ok = self.pixmap.save(path, fmt_bytes) if quality < 0 else self.pixmap.save(path, fmt_bytes, quality)
+        ok = self.pixmap.save(path, fmt) if quality < 0 else self.pixmap.save(path, fmt, quality)
         if not ok:
             QMessageBox.warning(self, "Save Error", f"Failed to write file: {path}")
             return

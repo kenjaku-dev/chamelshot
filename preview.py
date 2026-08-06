@@ -425,9 +425,8 @@ class PreviewWindow(QWidget):
 
         def work():
             os.makedirs(os.path.dirname(path), exist_ok=True)
-            # PySide6 stubs type the format parameter as bytes (const char*).
-            fmt_bytes = fmt.encode()
-            ok = img.save(path, fmt_bytes) if quality < 0 else img.save(path, fmt_bytes, quality)
+            # PySide6 6.11.1 rejects bytes here at runtime despite the stub typing format as bytes.
+            ok = img.save(path, fmt) if quality < 0 else img.save(path, fmt, quality)  # pyright: ignore[reportArgumentType,reportCallIssue]
             if not ok:
                 raise RuntimeError(f"Failed to write file: {path}")
             if not overwrite_source:

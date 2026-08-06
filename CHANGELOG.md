@@ -10,6 +10,39 @@ All notable changes to ChamelShot.
   launcher entry (`~/.local/share/applications/chamelshot.desktop`) with icon,
   created on first start and pinned to the real binary path. System-wide pip
   installs additionally ship the entry + icon via wheel data-files.
+- **Preview zoom (F2)** — a Fit / 100% toggle for the preview window: 1:1
+  pixels (scrollable) for inspecting detail before annotating, plus a
+  WxH resolution label and `Z`/`F` keyboard shortcuts. Fit still honors
+  `preview.max_width`.
+- **Live history refresh (F3)** — the history browser polls the folder every
+  2 s while visible, so new captures appear without reopening; thumbnails now
+  load on a worker thread instead of freezing the dialog. The current
+  selection and scroll position survive refreshes.
+- **Launcher mnemonics (F4)** — Alt+R / Alt+W / Alt+F / Alt+M trigger each
+  capture mode, and the launcher reliably takes keyboard focus when opened
+  from tray/IPC on Wayland (deferred xdg-activation, verified on niri).
+
+### Fixed
+
+- **Launcher clipping (E1)** — the launcher window no longer compresses its
+  buttons on scaled/HiDPI displays; its height is derived from the layout.
+- **History placeholder hijack (E2)** — the "No screenshots yet" row can no
+  longer become the current item and swallow Enter/C/Del.
+- **Pin window visibility (E3)** — frameless pins get a visible frame/border
+  and a corner resize grip, so dark screenshots no longer blend into dark
+  wallpapers.
+- **Shortcut validation (E4)** — the settings dialog rejects unparsable and
+  duplicate shortcuts inline and blocks Save while the input is invalid.
+- **Tray menu overflow (E5)** — long monitor names are elided in the monitor
+  submenu; the full name rides in a `tooltip-text` property.
+- **Wheel packaging (build fix)** — the wheel now includes the `theme` module
+  (F1); previously it would fail to import after install.
+
+### Refactored
+
+- **Centralized theme (F1)** — all stylesheets (launcher, history, pin,
+  preview, settings) now build on shared tokens in `theme.py`; one value to
+  change, no drift.
 
 ## v5.0.0 — 2026-08-06
 

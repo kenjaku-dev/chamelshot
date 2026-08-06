@@ -161,9 +161,15 @@ bind = CTRL, Print, exec, chamelshot --settings
 
 **Shortcuts:** `Ctrl+Z` undo, `Ctrl+Y` redo, `Escape` cancel current annotation/selection, `Enter` commit crop
 
+### Launcher
+- Compact launcher window (Region / Window / Fullscreen / Monitor / Settings) opened from the tray or `chamelshot`
+- **Mnemonics:** `Alt+R` / `Alt+W` / `Alt+F` / `Alt+M` start each capture mode
+- Reliably takes keyboard focus on Wayland when opened via tray/IPC
+
 ### Preview Window
 - View, annotate, save, or copy to clipboard (including primary selection for middle-click paste)
-- Pin a screenshot on screen as a frameless floating reference
+- **Zoom:** `Z` toggles 1:1 pixels (scrollable), `F` fits the window; the bottom bar shows the capture's `WxH` resolution
+- Pin a screenshot on screen as a floating reference (frameless window with its own border and a corner resize grip, so dark images stay visible)
 - Re-capture without leaving the preview
 - Keyboard shortcuts for save/copy/close/pin (configurable in settings)
 - Auto-save and auto-copy on capture (configurable)
@@ -183,7 +189,8 @@ bind = CTRL, Print, exec, chamelshot --settings
 ### Screenshot History
 - Automatic save to `~/.cache/chamelshot/history/` on every capture
 - Last 20 screenshots retained (oldest auto-pruned)
-- Browse directly from tray menu (opens with `xdg-open`)
+- History browser: thumbnail grid with keyboard navigation (arrows / Enter / C / Del / Esc) that **live-refreshes** while open (new captures appear without reopening) and loads thumbnails in the background
+- Browse the folder directly from the tray menu (opens with `xdg-open`)
 
 ### Capture Delay
 - Configure in settings (0-60 seconds)

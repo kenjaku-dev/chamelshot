@@ -518,10 +518,10 @@ class ChamelShotApp:
                 btn.clicked.connect(lambda: self._start_from_launcher(mode))
                 return btn
 
-            layout.addWidget(_make_btn("  ◻  Capture Region", "region"))
-            layout.addWidget(_make_btn("  ▭  Capture Window", "window"))
-            layout.addWidget(_make_btn("  ⊞  Capture Fullscreen", "fullscreen"))
-            layout.addWidget(_make_btn("  ◉  Capture Monitor", "monitor"))
+            layout.addWidget(_make_btn("  \u25fb  Capture &Region", "region"))
+            layout.addWidget(_make_btn("  \u25ad  Capture &Window", "window"))
+            layout.addWidget(_make_btn("  \u229e  Capture &Fullscreen", "fullscreen"))
+            layout.addWidget(_make_btn("  \u25c9  Capture &Monitor", "monitor"))
 
             layout.addSpacing(6)
 
@@ -535,7 +535,21 @@ class ChamelShotApp:
 
         launcher.show()
         launcher.raise_()
+        # Activating synchronously right after show() races the window map: on
+        # Wayland (niri included) the xdg-activation request must land once the
+        # window exists, so defer it and move keyboard focus to a real button.
+        QTimer.singleShot(0, lambda: self._focus_launcher(launcher))
+
+    def _focus_launcher(self, launcher):
+        """Post-map activation: raise + focus the launcher's first button so
+        Alt-mnemonics and Enter work immediately after opening from tray/IPC."""
+        if launcher is None or not launcher.isVisible():
+            return
         launcher.activateWindow()
+        launcher.raise_()
+        focus = launcher.focusWidget()
+        if focus is not None:
+            focus.setFocus(Qt.FocusReason.ActiveWindowFocusReason)
 
     # ---------------------------------------------------------------- Capture
 

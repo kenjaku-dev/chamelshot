@@ -7,7 +7,7 @@ dbusmenu; `grim`/`slurp` subprocesses for capture. Python 3.14 only.
 ## Commands (all via uv)
 
 ```sh
-dbus-run-session -- uv run pytest -q    # test suite (158 tests; needs a dbus
+dbus-run-session -- uv run pytest -q    # test suite (161 tests; needs a dbus
                                         # session for tray tests)
 uv run pytest -q test_capture.py test_config.py   # subset, no bus needed
 uv run ruff check .                     # lint

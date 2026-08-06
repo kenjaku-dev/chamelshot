@@ -67,3 +67,34 @@ def test_launcher_contents_inside_window(qapp):
         assert geo.top() >= rect.top(), f"{child} sticks out past the top edge"
         assert geo.right() <= rect.right(), f"{child} sticks out past the right edge"
         assert geo.bottom() <= rect.bottom(), f"{child} sticks out past the bottom edge"
+
+
+def test_launcher_buttons_have_unique_mnemonics(qapp):
+    launcher = _build_launcher(qapp)
+    buttons = [w for w in _launcher_widgets(launcher) if isinstance(w, QPushButton)]
+    found = {}
+    for btn in buttons:
+        amp = btn.text().find("&")
+        if amp == -1 or amp + 1 >= len(btn.text()):
+            continue
+        found[btn.text()[amp + 1].upper()] = btn.text()
+    assert set(found) == {"R", "W", "F", "M"}
+
+
+def test_focus_launcher_moves_focus_to_a_button(qapp):
+    launcher = _build_launcher(qapp)
+    app = main_mod.ChamelShotApp.__new__(main_mod.ChamelShotApp)
+    app._focus_launcher(launcher)
+    qapp.processEvents()
+    focused = launcher.focusWidget()
+    assert focused is not None
+    assert isinstance(focused, QPushButton)
+    assert focused.text()  # a real action button, not the window itself
+
+
+def test_focus_launcher_noop_when_hidden(qapp):
+    app = main_mod.ChamelShotApp.__new__(main_mod.ChamelShotApp)
+    launcher = _build_launcher(qapp)
+    launcher.hide()
+    app._focus_launcher(launcher)  # must not crash or force-focus a hidden window
+    assert not launcher.focusWidget() or not launcher.focusWidget().hasFocus()

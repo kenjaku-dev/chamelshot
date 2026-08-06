@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
 import clipboard as clip
 import config as cfg
 import proc
+import theme as t
 from dispatcher import run_async
 from editor import Annotator
 
@@ -143,22 +144,22 @@ class ExportDialog(QDialog):
         return (path, fmt, quality)
 
 
-ACTION_STYLE = """
-    QPushButton {
-        background: rgba(60, 60, 60, 200);
-        color: white;
-        border: 1px solid rgba(120, 120, 120, 120);
-        border-radius: 4px;
+ACTION_STYLE = f"""
+    QPushButton {{
+        background: {t.CHROME_BTN_BG};
+        color: {t.TEXT_WHITE};
+        border: 1px solid {t.CHROME_BTN_BORDER};
+        border-radius: {t.RADIUS_SMALL};
         padding: 6px 14px;
         font-size: 12px;
-    }
-    QPushButton:hover {
-        background: rgba(100, 100, 100, 230);
-        border-color: rgba(160, 160, 160, 200);
-    }
-    QPushButton:pressed {
-        background: rgba(40, 40, 40, 200);
-    }
+    }}
+    QPushButton:hover {{
+        background: {t.CHROME_BTN_HOVER};
+        border-color: {t.CHROME_BTN_BORDER_HOVER};
+    }}
+    QPushButton:pressed {{
+        background: {t.CHROME_BTN_PRESSED};
+    }}
 """
 
 
@@ -217,7 +218,7 @@ class PreviewWindow(QWidget):
         pc_layout.addWidget(self.preview_label, 1)
 
         self.action_overlay = QWidget()
-        self.action_overlay.setStyleSheet("background: rgba(30, 30, 30, 180); border-radius: 6px;")
+        self.action_overlay.setStyleSheet(f"background: {t.CHROME_TILE_BG}; border-radius: {t.RADIUS};")
         ol_layout = QHBoxLayout(self.action_overlay)
         ol_layout.setContentsMargins(8, 6, 8, 6)
         ol_layout.setSpacing(6)
@@ -271,11 +272,12 @@ class PreviewWindow(QWidget):
 
         btn_frame = QWidget()
         btn_frame.setStyleSheet(
-            "QWidget { background: #1e1e1e; border-radius: 8px; }"
-            " QPushButton { background: transparent; color: #ccc; border: 1px solid #444;"
-            " border-radius: 5px; padding: 6px 14px; font-size: 12px; }"
-            " QPushButton:hover { background: #333; color: #fff; border-color: #666; }"
-            " QPushButton:pressed { background: #111; }"
+            f"QWidget {{ background: {t.CHROME_BG}; border-radius: {t.RADIUS_LARGE}; }}"
+            f" QPushButton {{ background: transparent; color: {t.CHROME_TEXT}; border: 1px solid {t.CHROME_BORDER};"
+            f" border-radius: {t.RADIUS_MID}; padding: 6px 14px; font-size: 12px; }}"
+            f" QPushButton:hover {{ background: {t.CHROME_HOVER}; color: {t.TEXT_WHITE};"
+            f" border-color: {t.CHROME_BORDER_HOVER}; }}"
+            f" QPushButton:pressed {{ background: {t.CHROME_PRESSED}; }}"
         )
         btn_layout = QHBoxLayout(btn_frame)
         btn_layout.setContentsMargins(8, 6, 8, 6)

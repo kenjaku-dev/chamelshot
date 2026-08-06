@@ -32,20 +32,21 @@ from PySide6.QtWidgets import (
 import clipboard as clip
 import config as cfg
 import proc
+import theme as t
 
-PIN_BAR_STYLE = """
-    QWidget { background: rgba(30, 30, 30, 190); border-radius: 6px; }
-    QPushButton {
-        background: transparent; color: #ccc; border: none;
-        border-radius: 4px; padding: 6px 10px; font-size: 12px;
-    }
-    QPushButton:hover { background: #333; color: #fff; }
+PIN_BAR_STYLE = f"""
+    QWidget {{ background: {t.CHROME_BAR_BG}; border-radius: {t.RADIUS}; }}
+    QPushButton {{
+        background: transparent; color: {t.CHROME_TEXT}; border: none;
+        border-radius: {t.RADIUS_SMALL}; padding: 6px 10px; font-size: 12px;
+    }}
+    QPushButton:hover {{ background: {t.CHROME_HOVER}; color: {t.TEXT_WHITE}; }}
 """
 
 # The frameless pin needs its own frame: without it a dark screenshot melts
 # into a dark wallpaper and the window is indistinguishable from a stray box.
-PIN_ROOT_STYLE = """
-    QWidget#pinRoot { background: #161617; border: 1px solid #52525b; border-radius: 6px; }
+PIN_ROOT_STYLE = f"""
+    QWidget#pinRoot {{ background: {t.BG}; border: 1px solid {t.PIN_BORDER}; border-radius: {t.RADIUS}; }}
 """
 
 

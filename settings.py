@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 
 import config as cfg
 import proc
+import theme as t
 from version import VERSION
 
 
@@ -169,7 +170,7 @@ class SettingsDialog(QDialog):
 
         self.save_warning = QLabel()
         self.save_warning.setWordWrap(True)
-        self.save_warning.setStyleSheet("color: #d49e5b;")
+        self.save_warning.setStyleSheet(f"color: {t.WARNING};")
         layout.addRow(self.save_warning)
         self.filename_fmt.textChanged.connect(self._refresh_save_warning)
         self.img_format.currentTextChanged.connect(self._refresh_save_warning)
@@ -252,7 +253,7 @@ class SettingsDialog(QDialog):
 
         self.shortcut_warning = QLabel()
         self.shortcut_warning.setWordWrap(True)
-        self.shortcut_warning.setStyleSheet("color: #d49e5b;")
+        self.shortcut_warning.setStyleSheet(f"color: {t.WARNING};")
         layout.addRow(self.shortcut_warning)
 
         return w

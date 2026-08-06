@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 import config as cfg
 import ipc
 import proc
+import theme as t
 from version import VERSION
 
 if TYPE_CHECKING:
@@ -145,22 +146,22 @@ def _monitor_label(idx: int, name: str, descr: str, max_len: int = _MONITOR_LABE
     return head[:keep] + "\u2026" + suffix
 
 
-_LAUNCHER_STYLE = """
-    QWidget { background: #161617; color: #d4d4d8; }
-    QLabel#title {
-        color: #fff; font-size: 20px; font-weight: bold;
+_LAUNCHER_STYLE = f"""
+    QWidget {{ background: {t.BG}; color: {t.TEXT_BODY}; }}
+    QLabel#title {{
+        color: {t.TEXT_WHITE}; font-size: 20px; font-weight: bold;
         letter-spacing: 0.5px;
-    }
-    QLabel#version { color: #71717a; font-size: 11px; }
-    QPushButton {
-        background: #1f1f22; color: #e4e4e7;
-        border: 1px solid #2e2e32; border-radius: 6px;
+    }}
+    QLabel#version {{ color: {t.TEXT_MUTED}; font-size: 11px; }}
+    QPushButton {{
+        background: {t.PANEL}; color: {t.TEXT};
+        border: 1px solid {t.BORDER}; border-radius: {t.RADIUS};
         padding: 9px 14px; font-size: 13px; text-align: left;
-    }
-    QPushButton:hover { background: #2563eb; border-color: #2563eb; color: #fff; }
-    QPushButton:pressed { background: #1d4ed8; }
-    QPushButton#settings { text-align: center; background: transparent; }
-    QPushButton#settings:hover { background: #2a2a2e; border-color: #3a3a40; color: #e4e4e7; }
+    }}
+    QPushButton:hover {{ background: {t.ACCENT}; border-color: {t.ACCENT}; color: {t.TEXT_WHITE}; }}
+    QPushButton:pressed {{ background: {t.ACCENT_PRESSED}; }}
+    QPushButton#settings {{ text-align: center; background: transparent; }}
+    QPushButton#settings:hover {{ background: {t.PANEL_HOVER}; border-color: {t.BORDER_HOVER}; color: {t.TEXT}; }}
 """
 
 

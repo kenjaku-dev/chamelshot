@@ -34,25 +34,26 @@ from PySide6.QtWidgets import (
 import clipboard as clip
 import config as cfg
 import proc
+import theme as t
 
 _HISTORY_GLOB = "screenshot_*.png"
 _MAX_THUMBS = 10
 _THUMB_SIZE = 160
 
-_STYLE = """
-    QWidget { background: #161617; color: #d4d4d8; }
-    QListWidget {
-        background: #1f1f22; border: 1px solid #2e2e32; border-radius: 6px;
+_STYLE = f"""
+    QWidget {{ background: {t.BG}; color: {t.TEXT_BODY}; }}
+    QListWidget {{
+        background: {t.PANEL}; border: 1px solid {t.BORDER}; border-radius: {t.RADIUS};
         padding: 4px;
-    }
-    QLabel#hint { color: #71717a; font-size: 11px; }
-    QPushButton {
-        background: #1f1f22; color: #e4e4e7;
-        border: 1px solid #2e2e32; border-radius: 6px;
+    }}
+    QLabel#hint {{ color: {t.TEXT_MUTED}; font-size: 11px; }}
+    QPushButton {{
+        background: {t.PANEL}; color: {t.TEXT};
+        border: 1px solid {t.BORDER}; border-radius: {t.RADIUS};
         padding: 6px 14px; font-size: 13px;
-    }
-    QPushButton:hover { background: #2563eb; border-color: #2563eb; color: #fff; }
-    QPushButton:pressed { background: #1d4ed8; }
+    }}
+    QPushButton:hover {{ background: {t.ACCENT}; border-color: {t.ACCENT}; color: {t.TEXT_WHITE}; }}
+    QPushButton:pressed {{ background: {t.ACCENT_PRESSED}; }}
 """
 
 
@@ -156,7 +157,7 @@ class HistoryDialog(QDialog):
                 )
         else:
             pm = QPixmap(_THUMB_SIZE, _THUMB_SIZE)
-            pm.fill(QColor("#161617"))
+            pm.fill(QColor(t.BG))
         item = QListWidgetItem(QIcon(pm), path.stem.removeprefix("screenshot_").replace("_", " ")[:19])
         item.setData(Qt.ItemDataRole.UserRole, path)
         item.setToolTip(str(path))

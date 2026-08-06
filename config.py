@@ -300,6 +300,35 @@ def desktop_installed() -> bool:
     return DESKTOP_PATH.exists()
 
 
+SHORTCUT_FIELDS = ("save", "copy", "new_capture", "close", "pin", "copy_primary")
+
+
+def validate_shortcuts(config: dict) -> list[str]:
+    """Non-blocking warnings about shortcut bindings; empty list = OK.
+
+    Warnings on unparsable/empty bindings and on two actions bound to the
+    same key. Qt is imported lazily so the CLI fast path (--version/--help)
+    never pays for it.
+    """
+    from PySide6.QtGui import QKeySequence
+
+    warnings: list[str] = []
+    seen = {}
+    for field in SHORTCUT_FIELDS:
+        key = f"shortcuts.{field}"
+        text = str(config.get(key, DEFAULTS[key])).strip()
+        seq = QKeySequence(text)
+        portable = seq.toString(QKeySequence.SequenceFormat.PortableText)
+        if not text or seq.isEmpty() or not portable:
+            warnings.append(f"{key} is empty or does not parse as a key binding ({text!r})")
+            continue
+        if portable in seen:
+            warnings.append(f"{key} ({portable}) duplicates {seen[portable]}")
+        else:
+            seen[portable] = key
+    return warnings
+
+
 def generate_save_path(config: dict) -> str:
     save_dir = config.get("save.directory", DEFAULTS["save.directory"])
     fmt = config.get("save.filename_format", DEFAULTS["save.filename_format"])

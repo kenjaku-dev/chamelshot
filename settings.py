@@ -63,8 +63,11 @@ class SettingsDialog(QDialog):
         btn_row.addWidget(btn_cancel)
         btn_save = QPushButton("Save")
         btn_save.clicked.connect(self._save)
+        self.btn_save = btn_save
         btn_row.addWidget(btn_save)
         layout.addLayout(btn_row)
+
+        self._refresh_shortcuts_warning()
 
     def _reset_defaults(self):
         if (
@@ -236,7 +239,30 @@ class SettingsDialog(QDialog):
 
         layout.addRow("", QLabel("Format: Ctrl+S, Ctrl+Shift+A, Escape, etc."))
 
+        self.shortcut_fields = [
+            (self.sc_save, "save"),
+            (self.sc_copy, "copy"),
+            (self.sc_new, "new_capture"),
+            (self.sc_close, "close"),
+            (self.sc_pin, "pin"),
+            (self.sc_copy_primary, "copy_primary"),
+        ]
+        for edit, _ in self.shortcut_fields:
+            edit.textChanged.connect(self._refresh_shortcuts_warning)
+
+        self.shortcut_warning = QLabel()
+        self.shortcut_warning.setWordWrap(True)
+        self.shortcut_warning.setStyleSheet("color: #d49e5b;")
+        layout.addRow(self.shortcut_warning)
+
         return w
+
+    def _refresh_shortcuts_warning(self):
+        snapshot = {f"shortcuts.{field}": edit.text() for edit, field in self.shortcut_fields}
+        warnings = cfg.validate_shortcuts(snapshot)
+        self.shortcut_warning.setText("\n".join(warnings))
+        self.shortcut_warning.setVisible(bool(warnings))
+        self.btn_save.setEnabled(not warnings)
 
     def _preview_tab(self):
         w = QWidget()

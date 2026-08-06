@@ -278,3 +278,30 @@ def test_validate_save_settings_unwritable_dir(tmp_path):
     warnings = cfg.validate_save_settings(config)
     assert any("not writable" in w for w in warnings)
     locked.chmod(0o755)
+
+
+def test_validate_shortcuts_ok_with_defaults():
+    assert cfg.validate_shortcuts({}) == []
+
+
+def test_validate_shortcuts_ok_with_custom_binding():
+    assert cfg.validate_shortcuts({"shortcuts.save": "Ctrl+Alt+J"}) == []
+
+
+def test_validate_shortcuts_rejects_unparsable():
+    warnings = cfg.validate_shortcuts({"shortcuts.save": "garbage"})
+    assert len(warnings) == 1
+    assert "shortcuts.save" in warnings[0]
+
+
+def test_validate_shortcuts_rejects_empty():
+    warnings = cfg.validate_shortcuts({"shortcuts.copy": ""})
+    assert len(warnings) == 1
+    assert "shortcuts.copy" in warnings[0]
+
+
+def test_validate_shortcuts_detects_duplicates_case_insensitively():
+    warnings = cfg.validate_shortcuts({"shortcuts.save": "Ctrl+S", "shortcuts.copy": "ctrl+S"})
+    assert len(warnings) == 1
+    assert "shortcuts.copy" in warnings[0]
+    assert "shortcuts.save" in warnings[0]

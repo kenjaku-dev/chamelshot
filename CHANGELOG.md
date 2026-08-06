@@ -1,0 +1,76 @@
+# Changelog
+
+All notable changes to ChamelShot.
+
+## v5.0.0 — 2026-08-06
+
+The V5 release: monitor capture, pinning, clipboard + primary selection, a
+CLI for scripted capture, thumbnail notifications, history UX, annotation
+eraser/crop, and a validation + review pass over the whole tool.
+
+### Features
+
+- **Monitor capture (B1)** — capture a specific monitor. New `capture.monitor`
+  setting (`focused` or an output name), a monitor mode in the launcher, and a
+  monitor submenu in the tray. Note: monitor detection currently requires niri.
+- **Pin screenshots (C1)** — pin a capture on screen as a frameless,
+  always-on-top window (alt+pin, tray/launcher Pin, IPC/CLI). Pins are
+  multiple and ephemeral: they are never saved to history, and all close on
+  quit. Hover a pin for Copy / Save / Re-edit / Close.
+- **Primary selection copy (C2)** — a "Copy Primary" action places the image on
+  the Wayland primary selection (middle-click paste) via `wl-copy`, in
+  addition to the regular clipboard. Rebound via
+  `shortcuts.copy_primary` (default Ctrl+Shift+C). When `clipboard.tool` is
+  `qt` (no `wl-copy`), the button is disabled and the action warns.
+- **CLI + IPC capture (C3)** — capture by geometry, output, and window
+  `app_id` without touching the combos:
+  `--region WxH+X+Y`, `--output NAME`, `--window APP_ID`, plus matching IPC
+  commands (`capture-geometry`, `capture-output`, `capture-window-app`).
+- **Thumbnail notifications (C4)** — saved screenshots now show a thumbnail in
+  the desktop notification (toggle with `general.notification_preview`).
+- **Annotation eraser and crop (C5)** — restore strokes freehand (eraser) and
+  crop to a dragged rectangle (commit with Enter, cancel with Escape). Both
+  are undo-stack aware.
+- **History UX (B2/B3)** — an improved recents list: re-edit any recent
+  screenshot straight from the tray/history dialog, a thumbnail browser with
+  keyboard navigation (arrows / Enter / C / Del / Esc), and a dark-styled
+  dialog consistent with the rest of the app.
+- **Settings validation (B4)** — the settings dialog now validates the save
+  directory and filename format non-blockingly as you type (format/extension
+  mismatches and non-writable target directories are flagged before you save).
+  The writability check accepts directories that don't exist yet but whose
+  nearest parent is writable (they are created on save).
+
+### Fixes & refactors
+
+- Consolidated the clipboard pipeline (Qt + `wl-copy`, incl. primary) into one
+  module shared by preview, pin, history and the tray copy action.
+- Fixed an N+1-edit latent bug where the built wheel/AppImage omitted the
+  v5 modules (`clipboard`, `history`, `pin`, `dispatcher`) because they are
+  lazy-imported; `pyproject.toml` and the AppImage build now bundle them.
+- CI hygiene: `pyright`/`ruff` errors in new tests, `libegl1` for offscreen
+  PySide6 tests, hermetic temp dirs for tray tests.
+- Added **pre-commit hooks** matching CI: `ruff` check+format on staged files,
+  then `pyright` and the full `pytest` suite on every commit.
+
+### Dependencies
+
+- `pyside6>=6.11.1`, `pygobject>=3.56.0` (unchanged); development tooling now
+  pins `pytest>=9.1.1`, `ruff>=0.16.0`, `dbus-python>=1.4.0`,
+  `pyinstaller>=6.21.0`.
+
+### Installation notes
+
+- **AUR package temporarily paused** — the Arch AUR is currently offline for
+  maintenance, so the `chamelshot` AUR package has not yet been bumped to
+  `5.0.0`. It will be updated as soon as the AUR is back up. Until then, use
+  the AppImage from the [GitHub release](https://github.com/kenjaku-dev/chamelshot/releases)
+  or `pip install chamelshot`.
+- The GitHub release ships `chamelshot-5.0.0` as wheel, sdist and AppImage.
+
+### Known limitations
+
+- **Monitor mode is niri-only** — monitor enumeration/detection uses
+  `niri msg outputs`; on other wlroots compositors, region / window /
+  fullscreen capture still work, but the monitor submenu and `--output` are
+  unavailable.

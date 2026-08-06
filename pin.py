@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QSizeGrip,
     QVBoxLayout,
     QWidget,
 )
@@ -39,6 +40,12 @@ PIN_BAR_STYLE = """
         border-radius: 4px; padding: 6px 10px; font-size: 12px;
     }
     QPushButton:hover { background: #333; color: #fff; }
+"""
+
+# The frameless pin needs its own frame: without it a dark screenshot melts
+# into a dark wallpaper and the window is indistinguishable from a stray box.
+PIN_ROOT_STYLE = """
+    QWidget#pinRoot { background: #161617; border: 1px solid #52525b; border-radius: 6px; }
 """
 
 
@@ -83,9 +90,16 @@ class PinWindow(QWidget):
         self.pin_id = self.store.add(self)
         self.cfg = cfg.load()
 
+        self.setObjectName("pinRoot")
+        self.setStyleSheet(PIN_ROOT_STYLE)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.setMinimumSize(120, 90)
         self._size_to_pixmap(pixmap)
+
+        self.size_grip = QSizeGrip(self)
+        self.size_grip.setFixedSize(16, 16)
+        self.size_grip.setCursor(Qt.CursorShape.SizeFDiagCursor)
+        self.size_grip.raise_()
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -127,6 +141,13 @@ class PinWindow(QWidget):
         if work:
             w, h = min(w, work.width()), min(h, work.height())
         self.resize(w, h)
+
+    def resizeEvent(self, event):  # noqa: N802
+        self.size_grip.move(
+            self.width() - self.size_grip.width(),
+            self.height() - self.size_grip.height(),
+        )
+        super().resizeEvent(event)
 
     def enterEvent(self, event):  # noqa: N802
         self.toolbar.setVisible(True)

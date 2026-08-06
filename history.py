@@ -16,9 +16,10 @@ navigate the grid, Enter re-edits, C copies, Del deletes, Esc closes.
 
 import subprocess
 from pathlib import Path
+from typing import override
 
-from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QColor, QIcon, QKeySequence, QPixmap, QShortcut
+from PySide6.QtCore import QSize, Qt, QTimer
+from PySide6.QtGui import QColor, QIcon, QImage, QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -35,6 +36,7 @@ import clipboard as clip
 import config as cfg
 import proc
 import theme as t
+from dispatcher import run_async
 
 _HISTORY_GLOB = "screenshot_*.png"
 _MAX_THUMBS = 10
@@ -68,6 +70,22 @@ class HistoryDialog(QDialog):
         self._entries: list[Path] = []
         self._build_ui()
         self._refresh()
+        # Poll while visible so captures taken while the daemon runs show up
+        # without reopening; started/stopped in the show/hide events below.
+        self._timer = QTimer(self)
+        self._timer.setInterval(2000)
+        self._timer.timeout.connect(self._refresh)
+
+    @override
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._refresh()
+        self._timer.start()
+
+    @override
+    def hideEvent(self, event):
+        self._timer.stop()
+        super().hideEvent(event)
 
     # --------------------------------------------------------------- UI
 
@@ -128,40 +146,114 @@ class HistoryDialog(QDialog):
         return sorted(hist.glob(_HISTORY_GLOB), reverse=True)[:_MAX_THUMBS]
 
     def _refresh(self):
-        self.list.clear()
-        self._entries = self._entries_sorted()
-        for path in self._entries:
-            item = self._make_item(path)
-            self.list.addItem(item)
-        if not self._entries:
-            empty = QListWidgetItem("No screenshots yet — capture something first")
-            empty.setFlags(Qt.ItemFlag.NoItemFlags)
-            self.list.addItem(empty)
-            self.setWindowTitle("ChamelShot - History (empty)")
-        else:
+        """Sync the list to the history folder, minimizing UI churn.
+
+        Newest-first order only ever gains new captures at the front and loses
+        deleted ones, so we prepend/remove instead of clearing: no flicker and
+        the scroll position is preserved. Returns early when nothing changed
+        (e.g. a timer tick with no new capture).
+        """
+        entries = self._entries_sorted()
+        rendered = [
+            self.list.item(i).data(Qt.ItemDataRole.UserRole)
+            for i in range(self.list.count())
+            if self.list.item(i).data(Qt.ItemDataRole.UserRole) is not None
+        ]
+        has_placeholder = self._placeholder_item() is not None
+        if rendered == entries and has_placeholder == (not entries):
+            return
+        self._entries = entries
+        self._sync_items(entries)
+        ph = self._placeholder_item()
+        if self._entries:
+            if ph is not None:
+                self.list.takeItem(self.list.row(ph))
             self.setWindowTitle("ChamelShot - History")
-            # Only select a real entry; the NoItemFlags placeholder above must
-            # never become the current item or Enter/C/Del hit a dead row.
-            self.list.setCurrentItem(self.list.item(0))
+            current = self._current_path()
+            if current in self._entries:
+                self._select_path(current)
+            else:
+                self._select_path(self._entries[0])
+        else:
+            if ph is None:
+                empty = QListWidgetItem("No screenshots yet — capture something first")
+                empty.setFlags(Qt.ItemFlag.NoItemFlags)
+                self.list.addItem(empty)
+            self.setWindowTitle("ChamelShot - History (empty)")
+            self.list.setCurrentRow(-1)
+
+    def _sync_items(self, entries: list[Path]):
+        """Minimal list surgery: remove vanished entries, prepend new ones."""
+        taken = []
+        for i in range(self.list.count()):
+            it = self.list.item(i)
+            path = it.data(Qt.ItemDataRole.UserRole)
+            if path is not None and path not in entries:
+                taken.append(it)
+        for it in taken:
+            self.list.takeItem(self.list.row(it))
+        have = {self.list.item(i).data(Qt.ItemDataRole.UserRole) for i in range(self.list.count())}
+        for pos, path in enumerate(entries):
+            if path not in have:
+                item = self._make_item(path)
+                self.list.insertItem(pos, item)
+                # Load the thumbnail only once the item is attached, so the
+                # async callback's ownership check sees a live list widget.
+                self._load_thumb_async(item, path)
+
+    def _placeholder_item(self) -> QListWidgetItem | None:
+        for i in range(self.list.count()):
+            it = self.list.item(i)
+            if it.data(Qt.ItemDataRole.UserRole) is None:
+                return it
+        return None
+
+    def _select_path(self, path: Path):
+        for i in range(self.list.count()):
+            if self.list.item(i).data(Qt.ItemDataRole.UserRole) == path:
+                self.list.setCurrentItem(self.list.item(i))
+                return
+
+    @staticmethod
+    def _blank_pixmap() -> QPixmap:
+        pm = QPixmap(_THUMB_SIZE, _THUMB_SIZE)
+        pm.fill(QColor(t.BG))
+        return pm
 
     def _make_item(self, path: Path) -> QListWidgetItem:
-        pm = QPixmap(str(path))
-        if not pm.isNull():
-            long_side = max(pm.width(), pm.height())
-            if long_side > _THUMB_SIZE:
-                pm = pm.scaled(
+        item = QListWidgetItem(
+            QIcon(self._blank_pixmap()), path.stem.removeprefix("screenshot_").replace("_", " ")[:19]
+        )
+        item.setData(Qt.ItemDataRole.UserRole, path)
+        item.setToolTip(str(path))
+        return item
+
+    def _load_thumb_async(self, item: QListWidgetItem, path: Path):
+        """Load the thumbnail off the UI thread to keep the dialog responsive.
+
+        QImage is safe to load in a worker thread; the result comes back on the
+        main thread via dispatcher and only matters if the item is still in the
+        list (a refresh may have removed it while the load was in flight).
+        """
+
+        def work():
+            img = QImage(str(path))
+            if img.isNull():
+                return None
+            if max(img.width(), img.height()) > _THUMB_SIZE:
+                img = img.scaled(
                     _THUMB_SIZE,
                     _THUMB_SIZE,
                     Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation,
                 )
-        else:
-            pm = QPixmap(_THUMB_SIZE, _THUMB_SIZE)
-            pm.fill(QColor(t.BG))
-        item = QListWidgetItem(QIcon(pm), path.stem.removeprefix("screenshot_").replace("_", " ")[:19])
-        item.setData(Qt.ItemDataRole.UserRole, path)
-        item.setToolTip(str(path))
-        return item
+            return img
+
+        def done(img):
+            if img is not None and item.listWidget() is self.list:
+                item.setIcon(QIcon(QPixmap.fromImage(img)))
+
+        run_async(self, work, done, on_error=lambda e: None)
 
     def _current_path(self) -> Path | None:
         item = self.list.currentItem()

@@ -99,3 +99,109 @@ def test_nonempty_history_selects_newest_item(qapp, tmp_path, monkeypatch):
     path = cur.data(hst.Qt.ItemDataRole.UserRole)
     assert path.name == "screenshot_20260805_150000_000.png"
     dlg.close()
+
+
+def test_refresh_prepends_new_capture_keeps_selection(qapp, tmp_path, monkeypatch):
+    monkeypatch.setattr(cfg, "HISTORY_DIR", tmp_path)
+    _seed(tmp_path, ["screenshot_20260805_120000_000.png"])
+    dlg = hst.HistoryDialog()
+    dlg.show()
+    qapp.processEvents()
+    _seed(tmp_path, ["screenshot_20260805_150000_000.png"])
+    dlg._refresh()
+    qapp.processEvents()
+    assert dlg.list.count() == 2
+    assert dlg.list.item(0).data(hst.Qt.ItemDataRole.UserRole).name == "screenshot_20260805_150000_000.png"
+    cur = dlg.list.currentItem()
+    assert cur.data(hst.Qt.ItemDataRole.UserRole).name == "screenshot_20260805_120000_000.png"
+    dlg.close()
+
+
+def test_refresh_removes_deleted_entry(qapp, tmp_path, monkeypatch):
+    monkeypatch.setattr(cfg, "HISTORY_DIR", tmp_path)
+    _seed(tmp_path, ["screenshot_20260805_120000_000.png", "screenshot_20260805_150000_000.png"])
+    dlg = hst.HistoryDialog()
+    dlg.show()
+    qapp.processEvents()
+    assert dlg.list.count() == 2
+    (tmp_path / "screenshot_20260805_150000_000.png").unlink()
+    dlg._refresh()
+    qapp.processEvents()
+    assert dlg.list.count() == 1
+    assert dlg.list.currentItem().data(hst.Qt.ItemDataRole.UserRole).name == "screenshot_20260805_120000_000.png"
+    dlg.close()
+
+
+def test_refresh_placeholder_round_trip(qapp, tmp_path, monkeypatch):
+    monkeypatch.setattr(cfg, "HISTORY_DIR", tmp_path)
+    dlg = hst.HistoryDialog()
+    dlg.show()
+    qapp.processEvents()
+    assert dlg.list.count() == 1
+    assert dlg.list.item(0).flags() == hst.Qt.ItemFlag.NoItemFlags
+    _seed(tmp_path, ["screenshot_20260805_120000_000.png"])
+    dlg._refresh()
+    qapp.processEvents()
+    assert dlg.list.count() == 1
+    assert dlg.list.currentItem() is not None
+    (tmp_path / "screenshot_20260805_120000_000.png").unlink()
+    dlg._refresh()
+    qapp.processEvents()
+    assert dlg.list.count() == 1
+    assert dlg.list.item(0).flags() == hst.Qt.ItemFlag.NoItemFlags
+    dlg.close()
+
+
+def test_timer_runs_only_while_visible(qapp, tmp_path, monkeypatch):
+    monkeypatch.setattr(cfg, "HISTORY_DIR", tmp_path)
+    dlg = hst.HistoryDialog()
+    assert not dlg._timer.isActive()
+    dlg.show()
+    qapp.processEvents()
+    assert dlg._timer.isActive()
+    dlg.hide()
+    qapp.processEvents()
+    assert not dlg._timer.isActive()
+    dlg.close()
+
+
+def test_thumb_placeholder_icon_is_replaced_by_scaled_image(qapp, tmp_path, monkeypatch):
+    from PySide6.QtGui import QImage
+
+    png = tmp_path / "screenshot_20260805_120000_000.png"
+    QImage(640, 480, QImage.Format.Format_RGB32).save(str(png))
+
+    def fake_run_async(_receiver, work, on_ok=None, on_error=None):
+        if on_ok:
+            on_ok(work())
+
+    monkeypatch.setattr(cfg, "HISTORY_DIR", tmp_path)
+    monkeypatch.setattr(hst, "run_async", fake_run_async)
+    dlg = hst.HistoryDialog()
+    qapp.processEvents()
+    assert dlg.list.count() == 1
+    pm = dlg.list.item(0).icon().pixmap(160, 160)
+    assert (pm.width(), pm.height()) == (160, 120)
+    dlg.close()
+
+
+def test_thumb_async_skips_detached_item(qapp, tmp_path, monkeypatch):
+    from PySide6.QtGui import QImage
+
+    png = tmp_path / "screenshot_20260805_120000_000.png"
+    QImage(640, 480, QImage.Format.Format_RGB32).save(str(png))
+
+    def fake_run_async(_receiver, work, on_ok=None, on_error=None):
+        img = work()
+        if on_ok:
+            on_ok(img)
+
+    monkeypatch.setattr(cfg, "HISTORY_DIR", tmp_path)
+    monkeypatch.setattr(hst, "run_async", fake_run_async)
+    dlg = hst.HistoryDialog()
+    item = dlg.list.item(0)
+    dlg.list.takeItem(0)
+    assert item.listWidget() is None
+    dlg._load_thumb_async(item, png)  # must no-op, not crash
+    qapp.processEvents()
+    dlg.close()

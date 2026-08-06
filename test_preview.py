@@ -18,6 +18,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import clipboard as clip
 import preview as prv
 
 
@@ -69,12 +70,12 @@ def test_pin_calls_on_pin_with_current_pixmap():
     assert received == {"pm": "pixmap"}
 
 
-def test_wl_copy_args_plain():
-    assert prv._wl_copy_args(False) == ["wl-copy", "--type", "image/png"]
+def test_wl_copy_argv_plain():
+    assert clip.wl_copy_argv(False) == ["wl-copy", "--type", "image/png"]
 
 
-def test_wl_copy_args_primary():
-    assert prv._wl_copy_args(True) == ["wl-copy", "--type", "image/png", "--primary"]
+def test_wl_copy_argv_primary():
+    assert clip.wl_copy_argv(True) == ["wl-copy", "--type", "image/png", "--primary"]
 
 
 def test_copy_to_clipboard_primary_feeds_primary_selection(tmp_path, monkeypatch):
@@ -95,15 +96,33 @@ def test_copy_to_clipboard_primary_feeds_primary_selection(tmp_path, monkeypatch
             on_ok(result)
 
     monkeypatch.setattr(prv, "run_async", fake_run_async)
-    monkeypatch.setattr(prv.shutil, "which", lambda name: True)
+    monkeypatch.setattr(clip.shutil, "which", lambda name: True)
     run = MagicMock()
-    monkeypatch.setattr(prv.subprocess, "run", run)
+    monkeypatch.setattr(clip.subprocess, "run", run)
 
     w.copy_to_clipboard(primary=True, closing=False)
 
     calls = [c.args[0] for c in run.call_args_list]
     assert ["wl-copy", "--type", "image/png", "--primary"] in calls
     assert ["wl-copy", "--type", "image/png"] in calls
+
+
+def test_copy_to_clipboard_primary_without_wl_copy_warns(tmp_path, monkeypatch):
+    monkeypatch.setattr(prv.cfg, "HISTORY_DIR", tmp_path)
+    w = prv.PreviewWindow.__new__(prv.PreviewWindow)
+    w.cfg = {"clipboard.tool": "qt"}
+    w._current_image = MagicMock(return_value=MagicMock())
+    w._notify = MagicMock()
+
+    warned = []
+    monkeypatch.setattr(prv.QMessageBox, "warning", lambda *a, **k: warned.append(a))
+    run = MagicMock()
+    monkeypatch.setattr(clip.subprocess, "run", run)
+
+    w.copy_to_clipboard(primary=True, closing=False)
+
+    assert warned, "expected a warning when primary is requested without wl-copy"
+    assert run.call_count == 0
 
 
 def test_open_viewer_writes_temp_file_outside_history(tmp_path, monkeypatch):

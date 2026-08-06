@@ -13,13 +13,11 @@ frameless widget that renders one pin. Pins are ephemeral: they are not copied
 to history, produce no file on disk, and all close when the app quits.
 """
 
-import shutil
 import subprocess
 
-from PySide6.QtCore import QBuffer, QEvent, QIODevice, Qt, QTimer
+from PySide6.QtCore import QEvent, Qt, QTimer
 from PySide6.QtGui import QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (
-    QApplication,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -30,6 +28,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import clipboard as clip
 import config as cfg
 import proc
 
@@ -156,24 +155,7 @@ class PinWindow(QWidget):
         return super().eventFilter(obj, event)
 
     def _copy(self, primary=False):
-        tool = self.cfg.get("clipboard.tool", "wl-copy")
-        if tool in ("qt", "both"):
-            QApplication.clipboard().setPixmap(self.pixmap)
-        if tool in ("wl-copy", "both") and shutil.which("wl-copy"):
-            buf = QBuffer()
-            buf.open(QIODevice.OpenModeFlag.ReadWrite)
-            if self.pixmap.save(buf, "PNG"):
-                targets = [False]
-                if primary:
-                    targets.append(True)
-                for is_primary in targets:
-                    subprocess.run(
-                        ["wl-copy", "--type", "image/png", *(["--primary"] if is_primary else [])],
-                        input=buf.data().data(),
-                        timeout=5,
-                        env=proc.env(),
-                    )
-            buf.close()
+        clip.copy_pixmap(self.pixmap, self.cfg, primary)
         self._notify("Pinned image copied")
 
     def _save(self):

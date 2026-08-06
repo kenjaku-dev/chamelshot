@@ -14,14 +14,12 @@ to clipboard, open the history folder, delete. Keyboard-first: arrows
 navigate the grid, Enter re-edits, C copies, Del deletes, Esc closes.
 """
 
-import shutil
 import subprocess
 from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QColor, QIcon, QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (
-    QApplication,
     QDialog,
     QHBoxLayout,
     QLabel,
@@ -33,6 +31,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+import clipboard as clip
 import config as cfg
 import proc
 
@@ -209,19 +208,14 @@ class HistoryDialog(QDialog):
         if pm.isNull():
             QMessageBox.warning(self, "Copy", f"Could not load image:\n{path}")
             return
-        tool = self.cfg.get("clipboard.tool", "wl-copy")
-        if tool in ("qt", "both"):
-            QApplication.clipboard().setPixmap(pm)
-        if tool in ("wl-copy", "both") and shutil.which("wl-copy"):
-            try:
-                subprocess.run(
-                    ["wl-copy", "--type", "image/png"],
-                    input=path.read_bytes(),
-                    timeout=5,
-                    env=proc.env(),
-                )
-            except OSError:
-                pass
+        try:
+            png = path.read_bytes()
+        except OSError:
+            png = None
+        try:
+            clip.copy_pixmap(pm, self.cfg, png=png)
+        except OSError:
+            pass
 
     def _on_context_menu(self, pos):
         spec = self.list.itemAt(pos)

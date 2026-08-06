@@ -273,6 +273,18 @@ def validate_save_settings(config: dict) -> list[str]:
         want = "/".join(expected)
         warnings.append(f'Filename format resolves to ".{ext}" but save format is {img_format} (expected ".{want}")')
     save_dir = config.get("save.directory", DEFAULTS["save.directory"])
-    if not os.path.isdir(save_dir) or not os.access(save_dir, os.W_OK):
+    if not _dir_is_writable(save_dir):
         warnings.append(f"Save directory is not writable: {save_dir}")
     return warnings
+
+
+def _dir_is_writable(save_dir: str) -> bool:
+    """Test the directory itself, or its nearest existing ancestor: saves call
+    makedirs(exist_ok=True), so a missing dir under a writable parent is fine."""
+    p = Path(save_dir)
+    while not p.exists():
+        parent = p.parent
+        if parent == p:
+            break
+        p = parent
+    return p.is_dir() and os.access(p, os.W_OK)

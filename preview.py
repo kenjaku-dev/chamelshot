@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from PySide6.QtCore import QBuffer, QIODevice, Qt, QTimer
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QImage, QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
@@ -32,18 +32,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import clipboard as clip
 import config as cfg
 import proc
 from dispatcher import run_async
 from editor import Annotator
-
-
-def _wl_copy_args(primary: bool) -> list[str]:
-    """wl-copy argv: [--primary] places the image on the primary selection."""
-    args = ["wl-copy", "--type", "image/png"]
-    if primary:
-        args.append("--primary")
-    return args
 
 
 def _history_add(saved_path):
@@ -139,18 +132,7 @@ class ExportDialog(QDialog):
         self.accept()
 
     def _do_copy(self):
-        buf = QBuffer()
-        buf.open(QIODevice.OpenModeFlag.ReadWrite)
-        if not self.pixmap.save(buf, "PNG"):
-            return
-        png_data = buf.data().data()
-        buf.close()
-        tool = self.cfg.get("clipboard.tool", "wl-copy")
-        if tool in ("wl-copy", "both"):
-            if shutil.which("wl-copy"):
-                subprocess.run(["wl-copy", "--type", "image/png"], input=png_data, timeout=5, env=proc.env())
-        if tool in ("qt", "both"):
-            QApplication.clipboard().setPixmap(self.pixmap)
+        clip.copy_pixmap(self.pixmap, self.cfg)
 
     def export(self) -> tuple[str, str, int] | None:
         if self.exec() != QDialog.DialogCode.Accepted:
@@ -255,6 +237,7 @@ class PreviewWindow(QWidget):
         self.btn_copy_primary = QPushButton("Copy Primary")
         self.btn_copy_primary.setToolTip("Copy to clipboard and primary selection (middle-click paste)")
         self.btn_copy_primary.setStyleSheet(ACTION_STYLE)
+        self.btn_copy_primary.setEnabled(clip.wl_copy_supported(self.cfg))
         self.btn_copy_primary.clicked.connect(lambda: self.copy_to_clipboard(primary=True))
         ol_layout.addWidget(self.btn_copy_primary)
 
@@ -442,27 +425,26 @@ class PreviewWindow(QWidget):
         try:
             img = self._current_image()
             tool = self.cfg.get("clipboard.tool", "wl-copy")
-            use_wl = tool in ("wl-copy", "both") and shutil.which("wl-copy")
+            use_wl = clip.wl_copy_supported(self.cfg)
             use_qt = tool in ("qt", "both")
+            if primary and not use_wl:
+                QMessageBox.warning(
+                    self,
+                    "Copy Primary",
+                    "Primary selection requires the wl-copy clipboard tool.",
+                )
+                return
 
             def work():
-                buf = QBuffer()
-                buf.open(QIODevice.OpenModeFlag.ReadWrite)
-                if not img.save(buf, b"PNG"):
+                png_data = clip.image_png(img)
+                if png_data is None:
                     raise RuntimeError("Failed to encode PNG")
-                png_data = buf.data().data()
-                buf.close()
                 if use_wl:
                     targets = [False]
                     if primary:
                         targets.append(True)
                     for is_primary in targets:
-                        subprocess.run(
-                            _wl_copy_args(is_primary),
-                            input=png_data,
-                            timeout=5,
-                            env=proc.env(),
-                        )
+                        clip.wl_copy(png_data, is_primary)
                 return png_data
 
             def done(_png_data):

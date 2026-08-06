@@ -1,5 +1,7 @@
 import os
 
+import pytest
+
 import config as cfg
 
 
@@ -186,11 +188,25 @@ def test_validate_save_settings_jpeg_accepts_jpg_and_jpeg(tmp_path):
         assert cfg.validate_save_settings(config) == []
 
 
-def test_validate_save_settings_unwritable_dir(tmp_path, monkeypatch):
+def test_validate_save_settings_missing_dir_under_writable_parent_is_ok(tmp_path):
     config = {
-        "save.directory": str(tmp_path / "missing"),
+        "save.directory": str(tmp_path / "new" / "deeper"),
+        "save.filename_format": "shot_%Y.png",
+        "save.format": "PNG",
+    }
+    assert cfg.validate_save_settings(config) == []
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root bypasses permission checks")
+def test_validate_save_settings_unwritable_dir(tmp_path):
+    locked = tmp_path / "locked"
+    locked.mkdir()
+    locked.chmod(0o000)
+    config = {
+        "save.directory": str(locked),
         "save.filename_format": "shot_%Y.png",
         "save.format": "PNG",
     }
     warnings = cfg.validate_save_settings(config)
     assert any("not writable" in w for w in warnings)
+    locked.chmod(0o755)

@@ -19,7 +19,7 @@ import proc
 from version import VERSION
 
 if TYPE_CHECKING:
-    from PySide6.QtCore import QBuffer, QIODevice, QPoint, Qt, QTimer
+    from PySide6.QtCore import QPoint, Qt, QTimer
     from PySide6.QtGui import QAction, QCursor, QGuiApplication, QPixmap
     from PySide6.QtWidgets import (
         QApplication,
@@ -31,6 +31,7 @@ if TYPE_CHECKING:
         QWidget,
     )
 
+    import clipboard
     from capture import (
         capture_async,
         capture_fullscreen,
@@ -66,6 +67,7 @@ def _load_gui():
     import PySide6.QtWidgets as qtw  # noqa: N813
 
     import capture as cap
+    import clipboard as clip
     import dispatcher as disp
     import history as hst
     import overlay as ov
@@ -75,9 +77,8 @@ def _load_gui():
     import tray as tr
 
     g = globals()
+    g["clipboard"] = clip
     g["QPoint"] = qtcore.QPoint
-    g["QBuffer"] = qtcore.QBuffer
-    g["QIODevice"] = qtcore.QIODevice
     g["Qt"] = qtcore.Qt
     g["QTimer"] = qtcore.QTimer
     g["QAction"] = qtgui.QAction
@@ -372,20 +373,11 @@ class ChamelShotApp:
         if pm.isNull():
             QMessageBox.warning(None, "Copy", f"Could not load image:\n{path}")
             return
-        tool = self.settings.get("clipboard.tool", "wl-copy")
-        if tool in ("qt", "both"):
-            QApplication.clipboard().setPixmap(pm)
-        if tool in ("wl-copy", "both") and shutil.which("wl-copy"):
-            buf = QBuffer()
-            buf.open(QIODevice.OpenModeFlag.ReadWrite)
-            if pm.save(buf, "PNG"):
-                subprocess.run(
-                    ["wl-copy", "--type", "image/png"],
-                    input=buf.data().data(),
-                    timeout=5,
-                    env=proc.env(),
-                )
-            buf.close()
+        try:
+            png = path.read_bytes()
+        except OSError:
+            png = None
+        clipboard.copy_pixmap(pm, self.settings, png=png)
 
     def _open_history_file(self, path: Path):
         try:

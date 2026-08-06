@@ -8,8 +8,12 @@ uv run pyinstaller --onedir --name chamelshot \
   --paths . \
   --hidden-import config \
   --hidden-import capture \
+  --hidden-import clipboard \
+  --hidden-import dispatcher \
   --hidden-import editor \
+  --hidden-import history \
   --hidden-import overlay \
+  --hidden-import pin \
   --hidden-import preview \
   --hidden-import proc \
   --hidden-import settings \

@@ -46,7 +46,7 @@ exclude = [
 package = true
 
 [tool.setuptools]
-py-modules = ["__init__", "version", "dispatcher", "ipc", "editor", "main", "capture", "config", "overlay", "proc", "preview", "settings", "tray"]
+py-modules = ["__init__", "version", "dispatcher", "ipc", "editor", "main", "capture", "clipboard", "config", "history", "overlay", "pin", "proc", "preview", "settings", "tray"]
 
 [tool.pytest.ini_options]
 python_files = ["test_*.py"]

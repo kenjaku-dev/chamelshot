@@ -277,6 +277,22 @@ language = "en"       # currently only "en"
 
 ---
 
+## Benchmarking
+
+`scripts/bench.py` (stdlib only) measures the 5.1 performance baselines:
+CLI cold start, import profile, GUI import, daemon start + RSS, end-to-end
+capture latency (keybind → auto-saved file), and wheel size:
+
+```sh
+uv run python scripts/bench.py all
+```
+
+It is kept out of the test suite because capture needs a live Wayland
+session; daemon/capture runs use a temporary HOME so nothing touches your
+real config or screenshot history.
+
+---
+
 ## Migration from SnapCap
 
 v4.0.0 is a rename from the original `snapcap-wayland` project. ChamelShot uses a fresh config at `~/.config/chamelshot/` — your old `~/.config/snapcap/` settings are **not** migrated automatically; copy them manually if you customized anything. The AUR package `chamelshot` conflicts with `snapcap-wayland`.

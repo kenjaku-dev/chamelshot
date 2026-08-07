@@ -1,6 +1,6 @@
 pkgbase = chamelshot
 	pkgdesc = A lightweight screenshot capture tool for Wayland (wlroots)
-	pkgver = 5.0.0
+	pkgver = 5.1.0
 	pkgrel = 1
 	url = https://github.com/kenjaku-dev/chamelshot
 	arch = x86_64

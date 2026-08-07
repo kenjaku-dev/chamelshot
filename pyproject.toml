@@ -1,6 +1,6 @@
 [project]
 name = "chamelshot"
-version = "5.0.0"
+version = "5.1.0"
 license = "GPL-3.0-only"
 description = "A lightweight screenshot capture tool for Wayland (wlroots)"
 readme = "README.md"

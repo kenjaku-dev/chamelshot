@@ -339,137 +339,180 @@ _HTML_TEMPLATE = """<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="ChamelShot performance benchmarks across releases — startup, capture latency, and package size.">
 <title>ChamelShot v__VERSION__ — Benchmark Report</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23201d16'/%3E%3Ctext x='8' y='12' font-size='11' font-family='monospace' text-anchor='middle' fill='%23d9a441'%3EC%3C/text%3E%3C/svg%3E">
 <style>
   :root {
-    --bg: #0a0d14;
-    --card: rgba(255, 255, 255, 0.04);
-    --card-border: rgba(255, 255, 255, 0.08);
-    --text: #e7ecf5;
-    --muted: #8b94a7;
-    --indigo: #6366f1;
-    --cyan: #22d3ee;
-    --green: #34d399;
-    --amber: #fbbf24;
+    --bg: oklch(0.15 0.008 60);
+    --surface: oklch(0.185 0.010 60);
+    --surface-2: oklch(0.215 0.012 60);
+    --text: oklch(0.93 0.012 60);
+    --muted: oklch(0.66 0.018 60);
+    --border: oklch(0.29 0.014 60);
+    --accent: oklch(0.80 0.13 75);
+    --accent-soft: oklch(0.80 0.13 75 / 0.10);
+    --good: oklch(0.76 0.13 150);
+    --bad: oklch(0.74 0.13 30);
     --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px;
+    --space-lg: 24px; --space-xl: 32px; --space-2xl: 48px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { color-scheme: dark; }
+  html { color-scheme: dark; scroll-behavior: smooth; }
   body {
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-family: var(--sans);
     background: var(--bg);
     color: var(--text);
     min-height: 100vh;
-    padding: 48px 20px 72px;
+    padding: var(--space-2xl) var(--space-lg) var(--space-3xl, 72px);
     overflow-x: hidden;
   }
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    background:
-      radial-gradient(720px 420px at 12% -8%, rgba(99, 102, 241, 0.16), transparent 60%),
-      radial-gradient(640px 380px at 92% 4%, rgba(34, 211, 238, 0.10), transparent 60%),
-      radial-gradient(900px 600px at 50% 118%, rgba(52, 211, 153, 0.07), transparent 60%);
+  .skip {
+    position: absolute; left: -999px; top: 0;
+    background: var(--surface-2); color: var(--text);
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--border); border-radius: 8px;
+    z-index: 10;
   }
+  .skip:focus { left: var(--space-sm); top: var(--space-sm); }
   .wrap { max-width: 1040px; margin: 0 auto; }
-  header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 36px; }
-  .brand { display: flex; align-items: center; gap: 14px; }
-  .logo {
-    width: 44px; height: 44px; border-radius: 12px;
-    background: linear-gradient(135deg, var(--indigo), var(--cyan));
+
+  header { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-xl); }
+  .brand { display: flex; align-items: center; gap: var(--space-md); }
+  .mark {
+    width: 42px; height: 42px; border-radius: 10px;
+    background: var(--surface-2); border: 1px solid var(--border);
     display: grid; place-items: center;
-    font-weight: 800; font-size: 20px; color: #fff;
-    box-shadow: 0 8px 28px rgba(99, 102, 241, 0.35);
+    font-family: var(--mono); font-weight: 700; font-size: 20px;
+    color: var(--accent);
   }
-  h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
-  .sub { color: var(--muted); font-size: 13.5px; margin-top: 3px; }
-  .meta { display: flex; gap: 10px; flex-wrap: wrap; font-family: var(--mono); font-size: 12.5px; }
+  h1 { font-size: 1.5625rem; font-weight: 650; letter-spacing: -0.02em; text-wrap: balance; }
+  h1 .ver { color: var(--accent); font-family: var(--mono); font-size: 0.9em; font-weight: 600; }
+  .sub { color: var(--muted); font-size: 0.8125rem; margin-top: var(--space-2xs); }
+  .meta { display: flex; gap: var(--space-xs); flex-wrap: wrap; font-family: var(--mono); font-size: 0.75rem; }
   .chip {
     padding: 6px 12px; border-radius: 999px;
-    background: var(--card); border: 1px solid var(--card-border);
+    background: var(--surface); border: 1px solid var(--border);
     color: var(--muted);
   }
   .chip b { color: var(--text); font-weight: 600; }
-  .chip.hot { color: #a5f3fc; border-color: rgba(34, 211, 238, 0.35); background: rgba(34, 211, 238, 0.08); }
+  .chip.hot { color: var(--accent); border-color: oklch(0.80 0.13 75 / 0.35); background: var(--accent-soft); }
 
-  section { margin-bottom: 40px; }
-  .sec-title { font-size: 13px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
-  .sec-title::after { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); margin-left: 8px; animation: pulse 2.4s ease-in-out infinite; }
-  @keyframes pulse { 50% { opacity: 0.25; } }
-
-  .hero {
-    position: relative; border-radius: 20px; overflow: hidden;
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.16), rgba(34, 211, 238, 0.08) 60%, rgba(255, 255, 255, 0.02));
-    border: 1px solid var(--card-border);
-    padding: 30px 32px;
-    margin-bottom: 40px;
+  .lead {
+    font-size: 1rem; line-height: 1.6; color: var(--muted);
+    max-width: 72ch; text-wrap: pretty;
+    margin-bottom: var(--space-2xl);
   }
-  .hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px 44px; align-items: center; }
-  @media (max-width: 720px) { .hero-grid { grid-template-columns: 1fr; } }
-  .hero-label { color: var(--muted); font-size: 12.5px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600; }
-  .hero-nums { font-family: var(--mono); font-weight: 700; display: flex; align-items: baseline; gap: 12px; margin-top: 8px; }
-  .hero-nums .big { font-size: 56px; letter-spacing: -0.03em; line-height: 1; }
-  .hero-nums .big em { font-style: normal; background: linear-gradient(120deg, #818cf8, #67e8f9); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .hero-nums .unit { color: var(--muted); font-size: 18px; }
-  .hero-bar { height: 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); margin-top: 18px; overflow: hidden; }
-  .hero-bar i {
-    display: block; height: 100%; width: 0;
-    background: linear-gradient(90deg, var(--indigo), var(--cyan));
-    border-radius: 999px;
-    box-shadow: 0 0 18px rgba(34, 211, 238, 0.5);
-    transition: width 1.6s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  .hero-sub { color: var(--muted); font-size: 13px; margin-top: 14px; line-height: 1.55; }
-  .hero-sub b { color: var(--text); }
+  .lead b { font-family: var(--mono); font-weight: 600; color: var(--text); }
+  .lead b.good { color: var(--good); }
 
-  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+  section { margin-bottom: var(--space-2xl); }
+  .sec-title {
+    font-size: 0.75rem; font-weight: 650; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: var(--space-md);
+  }
+
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+  table.cmp { width: 100%; border-collapse: collapse; font-size: 0.875rem; min-width: 640px; }
+  #cmp { opacity: 0; transform: translateY(8px); transition: opacity 0.55s ease, transform 0.55s var(--ease-out); }
+  #cmp.in { opacity: 1; transform: none; }
+  #cmp th, #cmp td { padding: var(--space-sm) var(--space-md); text-align: left; border-bottom: 1px solid var(--border); }
+  #cmp thead th {
+    font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 650;
+    color: var(--muted); border-bottom: 1px solid var(--border);
+  }
+  #cmp thead th.cur { color: var(--accent); background: var(--accent-soft); }
+  #cmp thead th .tag { display: block; font-family: var(--mono); letter-spacing: 0; text-transform: none; font-size: 0.8125rem; font-weight: 650; margin-top: 2px; }
+  #cmp tbody tr:last-child th, #cmp tbody tr:last-child td { border-bottom: none; }
+  #cmp tbody tr:hover { background: var(--surface-2); }
+  #cmp td.metric { color: var(--text); font-weight: 550; white-space: nowrap; }
+  #cmp td.metric small { display: block; color: var(--muted); font-weight: 400; font-size: 0.75rem; margin-top: 2px; }
+  #cmp td.v { font-family: var(--mono); }
+  #cmp td.v .n { font-weight: 600; }
+  #cmp td.v .u { color: var(--muted); font-size: 0.75rem; margin-left: 2px; }
+  #cmp td.na { color: var(--muted); font-size: 0.8125rem; }
+  #cmp td.best .n { color: var(--accent); }
+  .cell-bar { height: 3px; border-radius: 999px; background: var(--surface-2); margin-top: 7px; overflow: hidden; }
+  .cell-bar i { display: block; height: 100%; width: var(--w, 0%); background: var(--border); transform: scaleX(0); transform-origin: left; transition: transform 0.9s var(--ease-out) 0.2s; }
+  td.best .cell-bar i { background: var(--accent); }
+  #cmp.in .cell-bar i { transform: scaleX(1); }
+  .delta {
+    display: inline-block; margin-left: var(--space-xs);
+    font-size: 0.6875rem; font-weight: 650; font-family: var(--sans);
+    padding: 2px 7px; border-radius: 999px; vertical-align: 1px;
+  }
+  .delta.good { color: var(--good); background: oklch(0.76 0.13 150 / 0.10); }
+  .delta.bad { color: var(--bad); background: oklch(0.74 0.13 30 / 0.10); }
+  .delta.flat { color: var(--muted); background: var(--surface-2); }
+  .note { margin-top: var(--space-sm); font-size: 0.75rem; color: var(--muted); line-height: 1.6; }
+  .note code { font-family: var(--mono); background: var(--surface-2); padding: 1px 5px; border-radius: 5px; font-size: 0.6875rem; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-md); }
   .card {
-    position: relative; border-radius: 16px; padding: 20px;
-    background: var(--card); border: 1px solid var(--card-border);
-    backdrop-filter: blur(8px);
-    opacity: 0; transform: translateY(14px);
-    transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.3s ease, box-shadow 0.3s ease;
+    border-radius: 14px; padding: var(--space-lg);
+    background: var(--surface); border: 1px solid var(--border);
+    opacity: 0; transform: translateY(8px);
+    transition: opacity 0.55s ease, transform 0.55s var(--ease-out), border-color 0.25s ease;
   }
   .card.in { opacity: 1; transform: none; }
-  .card:hover { border-color: rgba(255, 255, 255, 0.18); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45); }
-  .card .k { color: var(--muted); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
-  .card .v { font-family: var(--mono); font-size: 30px; font-weight: 700; margin-top: 10px; letter-spacing: -0.02em; }
-  .card .v small { font-size: 13px; color: var(--muted); font-weight: 500; margin-left: 3px; }
-  .card .d { margin-top: 10px; font-size: 12px; color: var(--muted); }
-  .card .bar { height: 4px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); margin-top: 14px; overflow: hidden; }
-  .card .bar i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--indigo), var(--cyan)); transition: width 1.4s cubic-bezier(0.22, 1, 0.36, 1) 0.15s; }
-  .good { color: var(--green); }
-  .warn { color: var(--amber); }
+  .card:hover { border-color: oklch(0.36 0.02 60); transform: translateY(-2px); }
+  .card.in:hover { transform: translateY(-2px); }
+  .card .k { color: var(--muted); font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 650; }
+  .card .v { font-family: var(--mono); font-size: 1.5625rem; font-weight: 700; margin-top: var(--space-sm); letter-spacing: -0.02em; }
+  .card .v small { font-size: 0.75rem; color: var(--muted); font-weight: 500; margin-left: var(--space-2xs); }
+  .card .d { margin-top: var(--space-xs); font-size: 0.75rem; color: var(--muted); line-height: 1.5; }
+  .bar { height: 4px; border-radius: 999px; background: var(--surface-2); margin-top: var(--space-sm); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: var(--w, 0%); background: var(--border); transform: scaleX(0); transform-origin: left; transition: transform 0.9s var(--ease-out) 0.15s; }
+  .card.in .bar i { transform: scaleX(1); }
 
-  .rows { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
-  .row-card { border-radius: 16px; padding: 20px 22px; background: var(--card); border: 1px solid var(--card-border); }
-  .row-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-  .row-head .name { font-family: var(--mono); font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .row-head .ms { font-family: var(--mono); font-size: 13px; font-weight: 600; }
-  .row-bar { height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); margin-top: 10px; overflow: hidden; }
-  .row-bar i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--indigo), var(--cyan)); transition: width 1.3s cubic-bezier(0.22, 1, 0.36, 1); }
+  .rows { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-md); }
+  .row-card {
+    border-radius: 14px; padding: var(--space-md) var(--space-lg);
+    background: var(--surface); border: 1px solid var(--border);
+    opacity: 0; transform: translateY(8px);
+    transition: opacity 0.55s ease, transform 0.55s var(--ease-out), border-color 0.25s ease;
+  }
+  .row-card.in { opacity: 1; transform: none; }
+  .row-card:hover { border-color: oklch(0.36 0.02 60); }
+  .row-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-sm); }
+  .row-head .name { font-family: var(--mono); font-size: 0.8125rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row-head .ms { font-family: var(--mono); font-size: 0.8125rem; font-weight: 600; color: var(--text); }
+  .row-bar { height: 6px; border-radius: 999px; background: var(--surface-2); margin-top: var(--space-xs); overflow: hidden; }
+  .row-bar i { display: block; height: 100%; width: var(--w, 0%); background: var(--border); transform: scaleX(0); transform-origin: left; transition: transform 0.9s var(--ease-out) 0.15s; }
+  .row-card.first .row-bar i { background: var(--accent); }
+  .row-card.in .row-bar i { transform: scaleX(1); }
 
-  footer { margin-top: 56px; color: var(--muted); font-size: 12.5px; line-height: 1.7; }
-  footer code { font-family: var(--mono); background: rgba(255, 255, 255, 0.06); padding: 2px 6px; border-radius: 6px; font-size: 11.5px; }
+  footer { margin-top: var(--space-2xl); color: var(--muted); font-size: 0.75rem; line-height: 1.8; }
+  footer code { font-family: var(--mono); background: var(--surface-2); padding: 2px 6px; border-radius: 6px; font-size: 0.6875rem; }
 
+  @media (max-width: 720px) {
+    body { padding: var(--space-xl) var(--space-md) var(--space-2xl); }
+  }
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { animation: none !important; transition: none !important; }
-    .card { opacity: 1; transform: none; }
-    .hero-bar i, .card .bar i, .row-bar i { width: var(--w, 0%) !important; }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+    .card, .row-card, #cmp { opacity: 1; transform: none; }
+    .bar i, .row-bar i, .cell-bar i { transform: scaleX(1) !important; }
+    html { scroll-behavior: auto; }
   }
 </style>
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <div class="wrap">
 
   <header>
     <div class="brand">
-      <div class="logo">C</div>
+      <div class="mark" aria-hidden="true">C</div>
       <div>
-        <h1>ChamelShot</h1>
-        <div class="sub">Performance benchmark report</div>
+        <h1>ChamelShot <span class="ver">v__VERSION__</span></h1>
+        <p class="sub">Performance benchmark report — measured on the live compositor</p>
       </div>
     </div>
     <div class="meta">
@@ -480,38 +523,33 @@ _HTML_TEMPLATE = """<!doctype html>
     </div>
   </header>
 
-  <section>
-    <div class="hero">
-      <div class="hero-grid">
-        <div>
-          <div class="hero-label">AppImage size</div>
-          <div class="hero-nums"><span class="big"><em id="hero-big">0</em></span><span class="unit">MB</span></div>
-          <div class="hero-sub">Down from <b>214 MB</b> in v5.0.0 — a <b id="hero-pct">0%</b> reduction, with nothing pruned that the app actually uses.</div>
-        </div>
-        <div>
-          <div class="hero-label">Save per capture</div>
-          <div class="hero-nums"><span class="big" id="hero-capture">0</span><span class="unit">ms</span></div>
-          <div class="hero-sub">Hot daemon → saved screenshot on niri. Cold start (no daemon) costs about <b id="hero-cold">0</b> ms — keep it hot with <code>--install-autostart</code>.</div>
-        </div>
+  <main id="main">
+    <p class="lead" id="lead"></p>
+
+    <section>
+      <div class="sec-title">Version comparison</div>
+      <div class="table-wrap">
+        <table class="cmp" id="cmp"></table>
       </div>
-      <div class="hero-bar"><i id="hero-bar" style="--w: 29%"></i></div>
-    </div>
-  </section>
+      <p class="note">Delta chips compare the current column against v5.0.0 · every metric is lower-is-better ·
+      <code>—</code> means the metric was introduced in v5.1.0 (daemon, capture pipeline) or was not measured with this harness (wheel).</p>
+    </section>
 
-  <section>
-    <div class="sec-title">Startup &amp; latency</div>
-    <div class="cards" id="cards"></div>
-  </section>
+    <section>
+      <div class="sec-title">Startup &amp; latency — v__VERSION__</div>
+      <div class="cards" id="cards"></div>
+    </section>
 
-  <section>
-    <div class="sec-title">Import profile — top contributors to GUI startup</div>
-    <div class="rows" id="imports"></div>
-  </section>
+    <section>
+      <div class="sec-title">Import profile — top contributors to GUI startup</div>
+      <div class="rows" id="imports"></div>
+    </section>
+  </main>
 
   <footer>
     <p>Generated by <code>uv run python scripts/bench.py all --html benchmarks.html</code> — best-of-N runs, hermetic HOME,
-    offscreen Qt where possible. Capture timings include the full keybind → saved-file pipeline on the live compositor.
-    Report is a static file; the data lives in the <code>__DATA__</code> script tag — regenerate any time.</p>
+    offscreen Qt where possible. Capture timings include the full keybind → saved-file pipeline on the live compositor
+    (niri · grim/slurp). Report is a static file; the data lives in the <code>__DATA__</code> script tag — regenerate any time.</p>
   </footer>
 </div>
 
@@ -521,29 +559,122 @@ _HTML_TEMPLATE = """<!doctype html>
   const D = JSON.parse(document.getElementById("bench-data").textContent);
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const fmt = (n) => Math.round(n).toLocaleString("en-US");
-  const ease = (t) => 1 - Math.pow(1 - t, 3);
+  const easeOut = (t) => 1 - Math.pow(1 - t, 3);
 
-  const count = (el, to, ms = 1100) => {
+  const count = (el, to, ms = 700) => {
     if (reduce) { el.textContent = fmt(to); return; }
     const t0 = performance.now();
     (function tick(now) {
       const p = Math.min((now - t0) / ms, 1);
-      el.textContent = fmt(to * ease(p));
+      el.textContent = fmt(to * easeOut(p));
       if (p < 1) requestAnimationFrame(tick);
     })(t0);
   };
 
-  const sizeMB = D.appimage_mb ?? 63;
-  count(document.getElementById("hero-big"), sizeMB);
-  document.getElementById("hero-pct").textContent = fmt((1 - sizeMB / 214) * 100) + "%";
-  const cap = D.capture_ms, cold = D.cold_capture_ms;
-  if (cap) count(document.getElementById("hero-capture"), cap);
-  else document.getElementById("hero-capture").textContent = "—";
-  if (cold) document.getElementById("hero-cold").textContent = fmt(cold) + " ms";
-  const bar = document.getElementById("hero-bar");
-  const bw = (sizeMB / 214) * 100;
-  if (!reduce) requestAnimationFrame(() => requestAnimationFrame(() => bar.style.width = bw + "%"));
-  else bar.style.width = bw + "%";
+  const lead = document.getElementById("lead");
+  const parts = [];
+  if (D.gui_import_ms) parts.push(`GUI import <b>${fmt(D.gui_import_ms)} ms</b>`);
+  if (D.daemon_start_ms) parts.push(`daemon start <b>${fmt(D.daemon_start_ms)} ms</b>`);
+  if (D.capture_ms) {
+    const cold = D.cold_capture_ms ? ` (cold <b>${fmt(D.cold_capture_ms)} ms</b>)` : "";
+    parts.push(`capture <b>${fmt(D.capture_ms)} ms</b>${cold}`);
+  }
+  if (D.appimage_mb) {
+    const prev = D.appimage_prev_mb;
+    const pct = prev ? Math.round((1 - D.appimage_mb / prev) * 100) : 0;
+    parts.push(`AppImage <b>${D.appimage_mb} MB</b>` + (pct > 0 ? ` <b class="good">(&minus;${pct}% vs ${D.versions && D.versions[1] ? D.versions[1].tag : "v5.0.0"})</b>` : ""));
+  }
+  if (parts.length) lead.innerHTML = "Current build: " + parts.join(" · ") + ".";
+  else lead.textContent = "Current build: run the full suite to populate this report.";
+
+  const versions = D.versions ?? [];
+  const cmp = document.getElementById("cmp");
+  if (versions.length >= 2) {
+    const head = document.createElement("thead");
+    const hr = document.createElement("tr");
+    const th0 = document.createElement("th");
+    th0.scope = "col";
+    th0.textContent = "Metric";
+    hr.appendChild(th0);
+    versions.forEach((v, i) => {
+      const th = document.createElement("th");
+      th.scope = "col";
+      if (i === versions.length - 1) {
+        th.className = "cur";
+        th.innerHTML = `current<span class="tag">${v.tag}</span>`;
+      } else {
+        th.innerHTML = `<span class="tag">${v.tag}</span>`;
+      }
+      hr.appendChild(th);
+    });
+    head.appendChild(hr);
+    cmp.appendChild(head);
+
+    const cur = versions[versions.length - 1];
+    const prev = versions[versions.length - 2];
+    const defs = [
+      { label: "CLI start", unit: "ms", k: "cli_ms", desc: "cold shell + --version" },
+      { label: "GUI import", unit: "ms", k: "gui_ms", desc: "main + Qt import" },
+      { label: "Top import", unit: "ms", k: "top_import_ms", desc: "heaviest module (PySide6.QtCore)" },
+      { label: "AppImage size", unit: "MB", k: "appimage_mb", desc: "portable x86_64 build" },
+      { label: "Daemon start", unit: "ms", k: "daemon_ms", desc: "spawn → IPC ready", since: "v5.1.0" },
+      { label: "Capture (hot)", unit: "ms", k: "capture_ms", desc: "keybind → saved", since: "v5.1.0" },
+      { label: "Capture (cold)", unit: "ms", k: "cold_ms", desc: "no daemon → saved", since: "v5.1.0" },
+      { label: "Wheel size", unit: "KB", k: "wheel_kb", desc: "pip artifact", since: "v5.1.0" },
+    ];
+    const body = document.createElement("tbody");
+    defs.forEach((def) => {
+      const tr = document.createElement("tr");
+      const td0 = document.createElement("td");
+      td0.className = "metric";
+      td0.innerHTML = `${def.label}<small>${def.desc}</small>`;
+      tr.appendChild(td0);
+
+      const vals = versions.map((v) => (v[def.k] == null ? null : Number(v[def.k])));
+      const present = vals.filter((v) => v != null);
+      const best = present.length ? Math.min(...present) : null;
+      const rowMax = present.length ? Math.max(...present) : 1;
+
+      versions.forEach((v, i) => {
+        const td = document.createElement("td");
+        const val = vals[i];
+        if (val == null) {
+          td.className = "na";
+          td.title = def.since ? `${def.since} only` : "not measured";
+          td.textContent = "—";
+        } else {
+          const isBest = val === best;
+          td.className = "v" + (isBest ? " best" : "");
+          const bar = document.createElement("div");
+          bar.className = "cell-bar";
+          const bi = document.createElement("i");
+          bi.style.setProperty("--w", ((val / rowMax) * 100).toFixed(1) + "%");
+          bar.appendChild(bi);
+          td.innerHTML = `<span class="n">${fmt(val)}</span><span class="u">${def.unit}</span>`;
+          td.appendChild(bar);
+          if (isBest) td.title = "fastest / smallest in row";
+          if (i === versions.length - 1 && prev && prev[def.k] != null) {
+            const d = ((val - prev[def.k]) / prev[def.k]) * 100;
+            const chip = document.createElement("span");
+            chip.className = "delta " + (d < -0.5 ? "good" : d > 0.5 ? "bad" : "flat");
+            chip.title = "vs " + prev.tag;
+            chip.textContent = d < -0.5 ? `\u2212${Math.abs(d).toFixed(d < -10 ? 0 : 1)}%` : d > 0.5 ? `+${d.toFixed(d > 10 ? 0 : 1)}%` : "\u00b10%";
+            td.appendChild(chip);
+          }
+        }
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+    cmp.appendChild(body);
+    const ioCmp = new IntersectionObserver((es) => {
+      es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); ioCmp.unobserve(e.target); } });
+    }, { threshold: 0.15 });
+    ioCmp.observe(cmp);
+  } else {
+    cmp.replaceWith(document.createElement("p"));
+    document.querySelector(".note").textContent = "Version history is empty — run the full suite.";
+  }
 
   const cards = document.getElementById("cards");
   const defs = [
@@ -555,8 +686,6 @@ _HTML_TEMPLATE = """<!doctype html>
     ["cold_capture_ms", "Capture (cold)", "ms", "no daemon → saved screenshot"],
     ["wheel_kb", "Wheel size", "KB", "pip artifact on PyPI"],
   ];
-  // Latency bars share one scale; RSS is a different magnitude, so it gets
-  // its own 80 MB reference bar instead of flattening everything else.
   const rssMax = 80000;
   const max = Math.max(...defs.filter(([k]) => k !== "daemon_rss_kb").map(([k]) => D[k] ?? 0), 1);
   const widthOf = (k, v) => (k === "daemon_rss_kb" ? Math.min((v / rssMax) * 100, 100) : (v / max) * 100);
@@ -569,16 +698,13 @@ _HTML_TEMPLATE = """<!doctype html>
       <div class="d">${desc}</div>
       <div class="bar"><i style="--w:${v ? widthOf(k, v) : 0}%"></i></div>`;
     cards.appendChild(el);
-    if (v) count(el.querySelector(".num"), v, 900);
+    if (v) count(el.querySelector(".num"), v);
     return el;
   });
   const io = new IntersectionObserver((es) => {
-    es.forEach(e => {
+    es.forEach((e) => {
       if (e.isIntersecting) {
         e.target.classList.add("in");
-        const b = e.target.querySelector(".bar i");
-        if (!reduce) requestAnimationFrame(() => requestAnimationFrame(() => b.style.width = b.dataset.w || b.style.getPropertyValue("--w")));
-        else b.style.width = b.style.getPropertyValue("--w");
         io.unobserve(e.target);
       }
     });
@@ -587,16 +713,15 @@ _HTML_TEMPLATE = """<!doctype html>
 
   const imports = document.getElementById("imports");
   const rows = D.imports ?? [];
-  const imax = Math.max(...rows.map(r => r.cum_ms), 1);
+  const imax = Math.max(...rows.map((r) => r.cum_ms), 1);
   rows.forEach((r, i) => {
     const el = document.createElement("div");
-    el.className = "row-card";
+    el.className = "row-card" + (i === 0 ? " first" : "");
     el.innerHTML = `<div class="row-head"><span class="name" title="${r.module}">${r.module}</span><span class="ms">${r.cum_ms.toFixed(1)} ms</span></div>
-      <div class="row-bar"><i style="--w:${(r.cum_ms / imax) * 100}%"></i></div>`;
+      <div class="row-bar"><i style="--w:${((r.cum_ms / imax) * 100).toFixed(1)}%"></i></div>`;
     imports.appendChild(el);
-    const b = el.querySelector(".row-bar i");
-    if (!reduce) requestAnimationFrame(() => requestAnimationFrame(() => b.style.width = b.style.getPropertyValue("--w")));
-    else b.style.width = b.style.getPropertyValue("--w");
+    el.style.transitionDelay = (i * 30) + "ms";
+    io.observe(el);
   });
 })();
 </script>
@@ -682,6 +807,48 @@ def main():
             results.update(bench_wheel())
     results["appimage_mb"] = 63
     results["appimage_prev_mb"] = 214
+    results["versions"] = [
+        {
+            "tag": "v4.2.0",
+            "date": "2026-08-02",
+            "cli_ms": 116,
+            "gui_ms": 276,
+            "top_import_ms": 122.4,
+            "appimage_mb": 83,
+        },
+        {
+            "tag": "v5.0.0",
+            "date": "2026-08-06",
+            "cli_ms": 114,
+            "gui_ms": 318,
+            "top_import_ms": 99.7,
+            "appimage_mb": 214,
+        },
+    ]
+    imports = results.get("imports")
+    cur_version = "5.1.0"
+    try:
+        sys.path.insert(0, str(ROOT))
+        import version as _v
+
+        cur_version = _v.VERSION
+    except Exception:
+        pass
+    results["versions"].append(
+        {
+            "tag": f"v{cur_version}",
+            "date": time.strftime("%Y-%m-%d"),
+            "cli_ms": results.get("cli_version_ms"),
+            "gui_ms": results.get("gui_import_ms"),
+            "top_import_ms": imports[0]["cum_ms"] if imports else None,
+            "appimage_mb": 63,
+            "daemon_ms": results.get("daemon_start_ms"),
+            "daemon_rss_mb": round(results["daemon_rss_kb"] / 1000, 1) if results.get("daemon_rss_kb") else None,
+            "capture_ms": results.get("capture_ms"),
+            "cold_ms": results.get("cold_capture_ms"),
+            "wheel_kb": results.get("wheel_kb"),
+        }
+    )
     if args.html:
         _render_html(results, Path(args.html))
 

@@ -6,6 +6,16 @@ All notable changes to ChamelShot.
 
 ### Added
 
+- **Benchmark dashboard (HTML report)** — `bench.py` gains `--html PATH`,
+  which collects the suite and renders a self-contained dark dashboard
+  (`benchmarks.html`, regenerate any time): a 3-release comparison table
+  (v4.2.0 / v5.0.0 / v5.1.0) with lower-is-better delta chips vs the
+  previous release, animated metric cards (CLI start, GUI import, daemon
+  start/RSS, hot/cold capture, wheel size), and the GUI import profile as
+  ranked bars. Warm-graphite OKLCH palette with a single amber accent,
+  system-ui + mono pairing, layout-safe `scaleX` bar animations, and full
+  `prefers-reduced-motion` support. Old-release numbers were measured by
+  running the harness against git worktrees of those tags.
 - **Dead-code hygiene (G7)** — a vulture pass (maintainability, not
   performance) removed five genuinely dead items: the never-sent `PING`
   IPC constant, the set-but-never-read `_original` countdown state, the

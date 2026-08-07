@@ -14,10 +14,11 @@ use a real dialog under an offscreen QApplication.
 """
 
 import os
+import time
 from pathlib import Path
 from unittest.mock import MagicMock
 
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 import pytest
 
@@ -152,16 +153,87 @@ def test_refresh_placeholder_round_trip(qapp, tmp_path, monkeypatch):
     dlg.close()
 
 
-def test_timer_runs_only_while_visible(qapp, tmp_path, monkeypatch):
+def test_watch_active_only_while_visible(qapp, tmp_path, monkeypatch):
     monkeypatch.setattr(cfg, "HISTORY_DIR", tmp_path)
     dlg = hst.HistoryDialog()
-    assert not dlg._timer.isActive()
+    assert not dlg._watcher.directories()
     dlg.show()
     qapp.processEvents()
-    assert dlg._timer.isActive()
+    assert dlg._watcher.directories() == [str(tmp_path)]
+    assert not dlg._fallback.isActive()
     dlg.hide()
     qapp.processEvents()
-    assert not dlg._timer.isActive()
+    assert not dlg._watcher.directories()
+    dlg.close()
+
+
+def _qwait_until(app, condition, timeout_s=3.0) -> bool:
+    from PySide6.QtTest import QTest
+
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        if condition():
+            return True
+        QTest.qWait(20)
+    return condition()
+
+
+def test_new_capture_appears_via_watcher(qapp, tmp_path, monkeypatch):
+    monkeypatch.setattr(cfg, "HISTORY_DIR", tmp_path)
+    _seed(tmp_path, ["screenshot_20260805_120000_000.png"])
+    dlg = hst.HistoryDialog()
+    dlg.show()
+    qapp.processEvents()
+    assert dlg.list.count() == 1
+    _seed(tmp_path, ["screenshot_20260805_150000_000.png"])
+    assert _qwait_until(qapp, lambda: dlg.list.count() == 2)
+    assert dlg.list.item(0).data(hst.Qt.ItemDataRole.UserRole).name == "screenshot_20260805_150000_000.png"
+    dlg.close()
+
+
+def test_external_delete_updates_list_via_watcher(qapp, tmp_path, monkeypatch):
+    monkeypatch.setattr(cfg, "HISTORY_DIR", tmp_path)
+    _seed(tmp_path, ["screenshot_20260805_120000_000.png", "screenshot_20260805_150000_000.png"])
+    dlg = hst.HistoryDialog()
+    dlg.show()
+    qapp.processEvents()
+    assert dlg.list.count() == 2
+    (tmp_path / "screenshot_20260805_150000_000.png").unlink()
+    assert _qwait_until(qapp, lambda: dlg.list.count() == 1)
+    assert dlg.list.item(0).data(hst.Qt.ItemDataRole.UserRole).name == "screenshot_20260805_120000_000.png"
+    dlg.close()
+
+
+def test_watcher_keeps_selection_after_external_add(qapp, tmp_path, monkeypatch):
+    monkeypatch.setattr(cfg, "HISTORY_DIR", tmp_path)
+    _seed(tmp_path, ["screenshot_20260805_120000_000.png", "screenshot_20260805_140000_000.png"])
+    dlg = hst.HistoryDialog()
+    dlg.show()
+    qapp.processEvents()
+    dlg.list.setCurrentRow(0)
+    _seed(tmp_path, ["screenshot_20260805_150000_000.png"])
+    assert _qwait_until(qapp, lambda: dlg.list.count() == 3)
+    assert dlg.list.currentItem().data(hst.Qt.ItemDataRole.UserRole).name == "screenshot_20260805_140000_000.png"
+    dlg.close()
+
+
+def test_fallback_polls_until_dir_exists_then_watches(qapp, tmp_path, monkeypatch):
+    monkeypatch.setattr(cfg, "HISTORY_DIR", tmp_path / "nope")
+    dlg = hst.HistoryDialog()
+    dlg.show()
+    qapp.processEvents()
+    assert not dlg._watcher.directories()
+    assert dlg._fallback.isActive()
+    hist_dir = tmp_path / "nope"
+    hist_dir.mkdir()
+    _seed(hist_dir, ["screenshot_20260805_120000_000.png"])
+    assert _qwait_until(
+        qapp,
+        lambda: dlg.list.count() == 1 and dlg.list.item(0).data(hst.Qt.ItemDataRole.UserRole) is not None,
+        timeout_s=4.0,
+    )
+    assert dlg._watcher.directories() == [str(hist_dir)]
+    assert not dlg._fallback.isActive()
     dlg.close()
 
 

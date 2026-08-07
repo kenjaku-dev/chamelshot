@@ -6,6 +6,13 @@ All notable changes to ChamelShot.
 
 ### Added
 
+- **Event-driven history refresh (G5)** — the history dialog now refreshes
+  via a `QFileSystemWatcher` (inotify) instead of polling every 2 s: new
+  screenshots and external deletes appear immediately (~150 ms debounce
+  coalesces bursts), with a 2 s fallback poll while the history dir doesn't
+  exist yet (and to re-attach the watch once it does). Selection and scroll
+  position survive every refresh, so a capture taken mid-session shows up
+  without moving the user's place.
 - **AppImage slimming (G4)** — the AppImage drops from 214 MB to 53 MB
   (~75% smaller, target was ≤ 140 MB) by pruning what `--collect-all PySide6.*`
   drags in but the app never uses: the 1.1 GB of bundled icon themes, Qt

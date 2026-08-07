@@ -18,7 +18,7 @@ import subprocess
 from pathlib import Path
 from typing import override
 
-from PySide6.QtCore import QSize, Qt, QTimer
+from PySide6.QtCore import QFileSystemWatcher, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QIcon, QImage, QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (
     QDialog,
@@ -70,22 +70,61 @@ class HistoryDialog(QDialog):
         self._entries: list[Path] = []
         self._build_ui()
         self._refresh()
-        # Poll while visible so captures taken while the daemon runs show up
-        # without reopening; started/stopped in the show/hide events below.
-        self._timer = QTimer(self)
-        self._timer.setInterval(2000)
-        self._timer.timeout.connect(self._refresh)
+        # Live refresh while visible: a QFileSystemWatcher (inotify) reports
+        # directory changes, so captures show up without polling. The watcher
+        # can't attach until the history dir exists, so a 2 s fallback timer
+        # polls (and re-attempts the watch) until it does; bursts of changes
+        # are coalesced through a 150 ms debounce.
+        self._watcher = QFileSystemWatcher(self)
+        self._watcher.directoryChanged.connect(self._on_dir_changed)
+        self._debounce = QTimer(self)
+        self._debounce.setSingleShot(True)
+        self._debounce.setInterval(150)
+        self._debounce.timeout.connect(self._refresh)
+        self._fallback = QTimer(self)
+        self._fallback.setInterval(2000)
+        self._fallback.timeout.connect(self._fallback_tick)
+        self._watching = False
 
     @override
     def showEvent(self, event):
         super().showEvent(event)
         self._refresh()
-        self._timer.start()
+        self._start_watching()
 
     @override
     def hideEvent(self, event):
-        self._timer.stop()
+        self._stop_watching()
         super().hideEvent(event)
+
+    def _start_watching(self):
+        if self._watching:
+            return
+        hist = cfg.HISTORY_DIR
+        if hist.is_dir() and self._watcher.addPath(str(hist)):
+            self._watching = True
+        else:
+            self._fallback.start()
+
+    def _stop_watching(self):
+        self._fallback.stop()
+        self._debounce.stop()
+        if self._watching:
+            self._watcher.removePath(str(cfg.HISTORY_DIR))
+            self._watching = False
+
+    def _fallback_tick(self):
+        self._refresh()
+        hist = cfg.HISTORY_DIR
+        if not hist.is_dir() or self._watching:
+            return
+        if self._watcher.addPath(str(hist)):
+            self._watching = True
+            self._fallback.stop()
+
+    def _on_dir_changed(self, *_args):
+        # Restarting a single-shot timer coalesces bursts into one refresh.
+        self._debounce.start()
 
     # --------------------------------------------------------------- UI
 

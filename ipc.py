@@ -17,8 +17,6 @@ import os
 import socket
 import threading
 
-PING = "ping"
-
 
 class AlreadyRunningError(Exception):
     """Another daemon holds the socket and is alive."""

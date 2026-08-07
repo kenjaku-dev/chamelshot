@@ -6,6 +6,16 @@ All notable changes to ChamelShot.
 
 ### Added
 
+- **Dead-code hygiene (G7)** — a vulture pass (maintainability, not
+  performance) removed five genuinely dead items: the never-sent `PING`
+  IPC constant, the set-but-never-read `_original` countdown state, the
+  unused tray `_items` bookkeeping and `update_icon` method (the icon was
+  only ever set once, at construction), and an unused socket-path constant
+  in the bench script. Everything vulture still flags is a false positive
+  (Qt virtual methods, string-dispatched dbusmenu `_m_*` handlers, Gio
+  signal args, pytest fixtures, mock kwargs) and is whitelisted in
+  `[tool.vulture]` in pyproject.toml — run it with `uv run --with vulture
+  vulture .`.
 - **Event-driven history refresh (G5)** — the history dialog now refreshes
   via a `QFileSystemWatcher` (inotify) instead of polling every 2 s: new
   screenshots and external deletes appear immediately (~150 ms debounce

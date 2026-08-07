@@ -241,7 +241,6 @@ class DbusMenu:
         self._connection = connection
         self._path = path
         self._builder = builder
-        self._items: list[dict] = []
         self._by_id: dict[int, dict] = {}
         self._children_of: dict[int, list[int]] = {}
         self._root_children: list[int] = []
@@ -281,7 +280,6 @@ class DbusMenu:
             return out
 
         walk(items, self._root_children)
-        self._items = [self._by_id[i] for i in self._root_children]
         self._revision += 1
 
     def _layout_props(self, item_id: int) -> dict:
@@ -647,8 +645,3 @@ class ChamelShotTray:
         self._retry_id = None
         self._register_with_watcher()
         return False
-
-    def update_icon(self, pixmap: QPixmap):
-        self._obj.set_icon(pixmap)
-        if self._bus:
-            self._bus.emit_signal(None, None, "/StatusNotifierItem", SNI_IFACE, "NewIcon", None)

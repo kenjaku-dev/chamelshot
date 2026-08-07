@@ -30,6 +30,27 @@ lint.select = ["E", "F", "I", "N", "W", "UP"]
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "N999"]
 
+[tool.vulture]
+# Names that look unused to static analysis but aren't: Qt virtual methods
+# (paintEvent, mouse*Event), string-dispatched dbusmenu handlers (_m_*),
+# Gio signal-handler arguments (sender, object_path, owner), Gio watch ids
+# kept for lifetime management (_name_owner, _watcher_watch), pytest fixtures
+# (menu_server) and mock kwargs (side_effect, kw).
+ignore_names = [
+    "paintEvent",
+    "mouse*Event",
+    "_m_*",
+    "sender",
+    "object_path",
+    "owner",
+    "_name_owner",
+    "_watcher_watch",
+    "menu_server",
+    "side_effect",
+    "kw",
+]
+exclude = [".venv", "build", "dist", "aur"]
+
 [tool.pyright]
 typeCheckingMode = "basic"
 reportMissingImports = false

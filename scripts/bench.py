@@ -25,7 +25,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 MAIN = ROOT / "main.py"
 HISTORY_DIR = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "chamelshot" / "history"
-SOCKET = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "chamelshot" / "daemon.sock"
 
 
 def _env(**extra):

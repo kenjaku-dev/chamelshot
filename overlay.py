@@ -205,7 +205,6 @@ class CountdownOverlay(QWidget):
     def __init__(self, seconds: int = 3):
         super().__init__()
         self._remaining = max(1, seconds)
-        self._original = self._remaining
 
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)

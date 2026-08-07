@@ -7,13 +7,20 @@ dbusmenu; `grim`/`slurp` subprocesses for capture. Python 3.14 only.
 ## Commands (all via uv)
 
 ```sh
-dbus-run-session -- uv run pytest -q    # test suite (161 tests; needs a dbus
-                                        # session for tray tests)
+dbus-run-session -- uv run pytest -n auto --dist loadscope -q
+                                        # test suite, parallel (xdist);
+                                        # loadscope keeps each test module on
+                                        # one worker, so the dbus tray tests
+                                        # (test_tray*, same session bus) run
+                                        # serialized
 uv run pytest -q test_capture.py test_config.py   # subset, no bus needed
 uv run ruff check .                     # lint
 uv run ruff format .                    # format (run before committing)
 uv run pyright .                        # typecheck
-pre-commit install                      # local hooks: ruff, pyright, pytest
+pre-commit install --hook-type pre-commit --hook-type pre-push
+                                        # pre-commit: fast gates (ruff,
+                                        # format, whitespace); pre-push:
+                                        # pyright + full pytest
 uv run pyinstaller ...                  # see packaging/build-appimage.sh
 packaging/build-appimage.sh 4.2.0       # builds AppImage into dist/
 ```

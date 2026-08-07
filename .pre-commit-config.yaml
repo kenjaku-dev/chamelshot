@@ -20,9 +20,11 @@ repos:
         entry: uv run pyright .
         language: system
         pass_filenames: false
+        stages: [pre-push]
       - id: pytest
         name: pytest
-        entry: dbus-run-session -- env QT_QPA_PLATFORM=offscreen uv run pytest -q
+        entry: dbus-run-session -- env QT_QPA_PLATFORM=offscreen uv run pytest -n auto --dist loadscope -q
         language: system
         pass_filenames: false
         verbose: true
+        stages: [pre-push]

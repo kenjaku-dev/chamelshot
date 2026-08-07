@@ -358,18 +358,38 @@ _HTML_TEMPLATE = """<!doctype html>
     --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
     --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
     --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px;
-    --space-lg: 24px; --space-xl: 32px; --space-2xl: 48px;
+    --space-lg: 24px; --space-xl: 32px; --space-2xl: 48px; --space-3xl: 72px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: oklch(0.975 0.006 60);
+      --surface: oklch(0.95 0.008 60);
+      --surface-2: oklch(0.90 0.010 60);
+      --text: oklch(0.25 0.02 60);
+      --muted: oklch(0.48 0.02 60);
+      --border: oklch(0.84 0.015 60);
+      --accent: oklch(0.58 0.13 75);
+      --accent-soft: oklch(0.58 0.13 75 / 0.12);
+      --good: oklch(0.46 0.12 150);
+      --bad: oklch(0.52 0.13 30);
+    }
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { color-scheme: dark; scroll-behavior: smooth; }
+  html { color-scheme: dark; }
+  @media (prefers-color-scheme: light) { html { color-scheme: light; } }
   body {
     font-family: var(--sans);
     background: var(--bg);
     color: var(--text);
     min-height: 100vh;
-    padding: var(--space-2xl) var(--space-lg) var(--space-3xl, 72px);
+    padding: var(--space-2xl) var(--space-lg) var(--space-3xl);
     overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
   }
+  ::selection { background: var(--accent-soft); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; border: 2px solid var(--bg); }
+  ::-webkit-scrollbar-track { background: transparent; }
   .skip {
     position: absolute; left: -999px; top: 0;
     background: var(--surface-2); color: var(--text);
@@ -377,21 +397,26 @@ _HTML_TEMPLATE = """<!doctype html>
     border: 1px solid var(--border); border-radius: 8px;
     z-index: 10;
   }
-  .skip:focus { left: var(--space-sm); top: var(--space-sm); }
+  .skip:focus-visible { left: var(--space-sm); top: var(--space-sm); outline: 2px solid var(--accent); outline-offset: 2px; }
+  .visually-hidden {
+    position: absolute; width: 1px; height: 1px; margin: -1px;
+    clip-path: inset(50%); overflow: hidden; white-space: nowrap;
+  }
   .wrap { max-width: 1040px; margin: 0 auto; }
 
   header { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-xl); }
   .brand { display: flex; align-items: center; gap: var(--space-md); }
   .mark {
-    width: 42px; height: 42px; border-radius: 10px;
+    width: 44px; height: 44px; border-radius: 10px;
     background: var(--surface-2); border: 1px solid var(--border);
     display: grid; place-items: center;
-    font-family: var(--mono); font-weight: 700; font-size: 20px;
+    font-family: var(--mono); font-weight: 700; font-size: 21px;
     color: var(--accent);
   }
-  h1 { font-size: 1.5625rem; font-weight: 650; letter-spacing: -0.02em; text-wrap: balance; }
-  h1 .ver { color: var(--accent); font-family: var(--mono); font-size: 0.9em; font-weight: 600; }
+  h1 { font-size: clamp(1.75rem, 1rem + 2vw, 2.25rem); font-weight: 700; letter-spacing: -0.025em; text-wrap: balance; }
+  h1 .ver { color: var(--accent); font-family: var(--mono); font-size: 0.85em; font-weight: 600; }
   .sub { color: var(--muted); font-size: 0.8125rem; margin-top: var(--space-2xs); }
+  .sub .sep { color: var(--border); padding: 0 var(--space-2xs); }
   .meta { display: flex; gap: var(--space-xs); flex-wrap: wrap; font-family: var(--mono); font-size: 0.75rem; }
   .chip {
     padding: 6px 12px; border-radius: 999px;
@@ -400,37 +425,46 @@ _HTML_TEMPLATE = """<!doctype html>
   }
   .chip b { color: var(--text); font-weight: 600; }
   .chip.hot { color: var(--accent); border-color: oklch(0.80 0.13 75 / 0.35); background: var(--accent-soft); }
+  @media (prefers-color-scheme: light) { .chip.hot { border-color: oklch(0.58 0.13 75 / 0.35); } }
 
-  .lead {
-    font-size: 1rem; line-height: 1.6; color: var(--muted);
-    max-width: 72ch; text-wrap: pretty;
+  .stats {
+    display: flex; flex-wrap: wrap; gap: 0;
+    border: 1px solid var(--border); border-radius: 14px;
+    background: var(--surface);
     margin-bottom: var(--space-2xl);
   }
-  .lead b { font-family: var(--mono); font-weight: 600; color: var(--text); }
-  .lead b.good { color: var(--good); }
+  .stat { flex: 1 1 160px; padding: var(--space-md) var(--space-lg); border-left: 1px solid var(--border); }
+  .stat:first-child { border-left: none; }
+  .stat .k { display: block; color: var(--muted); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 650; }
+  .stat .v { display: block; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 1.375rem; font-weight: 700; margin-top: var(--space-2xs); letter-spacing: -0.02em; }
+  .stat .v .u { color: var(--muted); font-size: 0.8125rem; font-weight: 500; margin-left: 2px; }
+  .stat .v.good { color: var(--good); }
+  .stat .s { display: block; color: var(--muted); font-size: 0.75rem; margin-top: var(--space-2xs); line-height: 1.5; }
+  @media (max-width: 720px) { .stat { border-left: none; border-top: 1px solid var(--border); } .stat:first-child { border-top: none; } }
 
-  section { margin-bottom: var(--space-2xl); }
-  .sec-title {
-    font-size: 0.75rem; font-weight: 650; letter-spacing: 0.12em; text-transform: uppercase;
-    color: var(--muted); margin-bottom: var(--space-md);
-  }
+  main section { margin-bottom: var(--space-2xl); }
+  .sec-title { font-size: 0.75rem; font-weight: 650; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: var(--space-md); }
+  .sec-title .no { font-family: var(--mono); color: var(--accent); margin-right: var(--space-xs); letter-spacing: 0; }
 
   .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
-  table.cmp { width: 100%; border-collapse: collapse; font-size: 0.875rem; min-width: 640px; }
-  #cmp { opacity: 0; transform: translateY(8px); transition: opacity 0.55s ease, transform 0.55s var(--ease-out); }
-  #cmp.in { opacity: 1; transform: none; }
+  table.cmp { width: 100%; border-collapse: collapse; font-size: 0.875rem; min-width: 680px; }
+  #cmp { opacity: 0; animation: rise 0.55s var(--ease-out) backwards; animation-delay: var(--td, 0ms); }
+  #cmp.in { opacity: 1; }
   #cmp th, #cmp td { padding: var(--space-sm) var(--space-md); text-align: left; border-bottom: 1px solid var(--border); }
   #cmp thead th {
     font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 650;
-    color: var(--muted); border-bottom: 1px solid var(--border);
+    color: var(--muted);
   }
   #cmp thead th.cur { color: var(--accent); background: var(--accent-soft); }
-  #cmp thead th .tag { display: block; font-family: var(--mono); letter-spacing: 0; text-transform: none; font-size: 0.8125rem; font-weight: 650; margin-top: 2px; }
+  #cmp thead th .eyebrow { display: block; font-weight: 650; }
+  #cmp thead th .tag { display: block; font-family: var(--mono); letter-spacing: 0; text-transform: none; font-size: 0.8125rem; font-weight: 650; margin-top: var(--space-2xs); }
+  #cmp tbody tr { opacity: 0; animation: rise 0.5s var(--ease-out) backwards; animation-delay: var(--td, 0ms); }
+  #cmp.in tbody tr { opacity: 1; }
   #cmp tbody tr:last-child th, #cmp tbody tr:last-child td { border-bottom: none; }
   #cmp tbody tr:hover { background: var(--surface-2); }
   #cmp td.metric { color: var(--text); font-weight: 550; white-space: nowrap; }
   #cmp td.metric small { display: block; color: var(--muted); font-weight: 400; font-size: 0.75rem; margin-top: 2px; }
-  #cmp td.v { font-family: var(--mono); }
+  #cmp td.v { font-family: var(--mono); font-variant-numeric: tabular-nums; }
   #cmp td.v .n { font-weight: 600; }
   #cmp td.v .u { color: var(--muted); font-size: 0.75rem; margin-left: 2px; }
   #cmp td.na { color: var(--muted); font-size: 0.8125rem; }
@@ -441,29 +475,33 @@ _HTML_TEMPLATE = """<!doctype html>
   #cmp.in .cell-bar i { transform: scaleX(1); }
   .delta {
     display: inline-block; margin-left: var(--space-xs);
-    font-size: 0.6875rem; font-weight: 650; font-family: var(--sans);
+    font-size: 0.75rem; font-weight: 650; font-family: var(--sans);
     padding: 2px 7px; border-radius: 999px; vertical-align: 1px;
   }
   .delta.good { color: var(--good); background: oklch(0.76 0.13 150 / 0.10); }
   .delta.bad { color: var(--bad); background: oklch(0.74 0.13 30 / 0.10); }
   .delta.flat { color: var(--muted); background: var(--surface-2); }
-  .note { margin-top: var(--space-sm); font-size: 0.75rem; color: var(--muted); line-height: 1.6; }
-  .note code { font-family: var(--mono); background: var(--surface-2); padding: 1px 5px; border-radius: 5px; font-size: 0.6875rem; }
+  @media (prefers-color-scheme: light) {
+    .delta.good { background: oklch(0.46 0.12 150 / 0.12); }
+    .delta.bad { background: oklch(0.52 0.13 30 / 0.12); }
+  }
+  .note { margin-top: var(--space-sm); font-size: 0.8125rem; color: var(--muted); line-height: 1.65; }
+  .note code { font-family: var(--mono); background: var(--surface-2); padding: 1px 5px; border-radius: 5px; font-size: 0.75rem; }
 
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-md); }
   .card {
     border-radius: 14px; padding: var(--space-lg);
     background: var(--surface); border: 1px solid var(--border);
-    opacity: 0; transform: translateY(8px);
-    transition: opacity 0.55s ease, transform 0.55s var(--ease-out), border-color 0.25s ease;
+    opacity: 0; animation: rise 0.55s var(--ease-out) backwards; animation-delay: var(--td, 0ms);
+    transition: transform 0.25s var(--ease-out), border-color 0.25s ease;
   }
-  .card.in { opacity: 1; transform: none; }
+  .card.in { opacity: 1; }
   .card:hover { border-color: oklch(0.36 0.02 60); transform: translateY(-2px); }
-  .card.in:hover { transform: translateY(-2px); }
-  .card .k { color: var(--muted); font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 650; }
-  .card .v { font-family: var(--mono); font-size: 1.5625rem; font-weight: 700; margin-top: var(--space-sm); letter-spacing: -0.02em; }
+  .card:focus-within { border-color: var(--accent); }
+  .card .k { color: var(--muted); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 650; }
+  .card .v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: clamp(1.5rem, 1.2rem + 0.6vw, 1.875rem); font-weight: 700; margin-top: var(--space-sm); letter-spacing: -0.02em; }
   .card .v small { font-size: 0.75rem; color: var(--muted); font-weight: 500; margin-left: var(--space-2xs); }
-  .card .d { margin-top: var(--space-xs); font-size: 0.75rem; color: var(--muted); line-height: 1.5; }
+  .card .d { margin-top: var(--space-xs); font-size: 0.8125rem; color: var(--muted); line-height: 1.55; }
   .bar { height: 4px; border-radius: 999px; background: var(--surface-2); margin-top: var(--space-sm); overflow: hidden; }
   .bar i { display: block; height: 100%; width: var(--w, 0%); background: var(--border); transform: scaleX(0); transform-origin: left; transition: transform 0.9s var(--ease-out) 0.15s; }
   .card.in .bar i { transform: scaleX(1); }
@@ -472,24 +510,34 @@ _HTML_TEMPLATE = """<!doctype html>
   .row-card {
     border-radius: 14px; padding: var(--space-md) var(--space-lg);
     background: var(--surface); border: 1px solid var(--border);
-    opacity: 0; transform: translateY(8px);
-    transition: opacity 0.55s ease, transform 0.55s var(--ease-out), border-color 0.25s ease;
+    opacity: 0; animation: rise 0.5s var(--ease-out) backwards; animation-delay: var(--td, 0ms);
+    transition: border-color 0.25s ease;
   }
-  .row-card.in { opacity: 1; transform: none; }
+  .row-card.in { opacity: 1; }
   .row-card:hover { border-color: oklch(0.36 0.02 60); }
   .row-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-sm); }
   .row-head .name { font-family: var(--mono); font-size: 0.8125rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .row-head .ms { font-family: var(--mono); font-size: 0.8125rem; font-weight: 600; color: var(--text); }
+  .row-head .ms { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 0.8125rem; font-weight: 600; color: var(--text); }
   .row-bar { height: 6px; border-radius: 999px; background: var(--surface-2); margin-top: var(--space-xs); overflow: hidden; }
   .row-bar i { display: block; height: 100%; width: var(--w, 0%); background: var(--border); transform: scaleX(0); transform-origin: left; transition: transform 0.9s var(--ease-out) 0.15s; }
   .row-card.first .row-bar i { background: var(--accent); }
   .row-card.in .row-bar i { transform: scaleX(1); }
 
-  footer { margin-top: var(--space-2xl); color: var(--muted); font-size: 0.75rem; line-height: 1.8; }
-  footer code { font-family: var(--mono); background: var(--surface-2); padding: 2px 6px; border-radius: 6px; font-size: 0.6875rem; }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+
+  footer { margin-top: var(--space-2xl); }
+  footer .method { display: grid; gap: 0; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+  footer .method > div { display: grid; grid-template-columns: 150px 1fr; gap: var(--space-md); padding: var(--space-sm) var(--space-lg); border-top: 1px solid var(--border); }
+  footer .method > div:first-child { border-top: none; }
+  footer .method dt { font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 650; color: var(--muted); padding-top: 2px; }
+  footer .method dd { font-size: 0.8125rem; color: var(--muted); line-height: 1.65; }
+  footer .method dd b { color: var(--text); font-weight: 600; }
+  footer .regen { margin-top: var(--space-sm); font-size: 0.8125rem; color: var(--muted); }
+  footer code { font-family: var(--mono); background: var(--surface-2); padding: 2px 6px; border-radius: 6px; font-size: 0.75rem; }
 
   @media (max-width: 720px) {
     body { padding: var(--space-xl) var(--space-md) var(--space-2xl); }
+    footer .method > div { grid-template-columns: 1fr; gap: var(--space-2xs); }
   }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -497,9 +545,21 @@ _HTML_TEMPLATE = """<!doctype html>
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
     }
-    .card, .row-card, #cmp { opacity: 1; transform: none; }
+    .card, .row-card, #cmp, #cmp tbody tr { opacity: 1 !important; }
     .bar i, .row-bar i, .cell-bar i { transform: scaleX(1) !important; }
-    html { scroll-behavior: auto; }
+  }
+  @media print {
+    :root {
+      --bg: #ffffff; --surface: oklch(0.975 0.006 60); --surface-2: oklch(0.90 0.010 60);
+      --text: oklch(0.25 0.02 60); --muted: oklch(0.48 0.02 60); --border: oklch(0.84 0.015 60);
+      --accent: oklch(0.45 0.13 75); --accent-soft: oklch(0.58 0.13 75 / 0.12);
+      --good: oklch(0.46 0.12 150); --bad: oklch(0.52 0.13 30);
+    }
+    .skip { display: none; }
+    .card, .row-card, #cmp, #cmp tbody tr { opacity: 1 !important; animation: none !important; }
+    .bar i, .row-bar i, .cell-bar i { transform: none !important; }
+    .stats, .table-wrap, .card, .row-card { break-inside: avoid; }
+    body { padding: 0; }
   }
 </style>
 </head>
@@ -512,7 +572,7 @@ _HTML_TEMPLATE = """<!doctype html>
       <div class="mark" aria-hidden="true">C</div>
       <div>
         <h1>ChamelShot <span class="ver">v__VERSION__</span></h1>
-        <p class="sub">Performance benchmark report — measured on the live compositor</p>
+        <p class="sub">Benchmark report<span class="sep">·</span>startup<span class="sep">·</span>capture latency<span class="sep">·</span>packaging</p>
       </div>
     </div>
     <div class="meta">
@@ -524,32 +584,39 @@ _HTML_TEMPLATE = """<!doctype html>
   </header>
 
   <main id="main">
-    <p class="lead" id="lead"></p>
+    <div class="stats" id="stats"></div>
 
     <section>
-      <div class="sec-title">Version comparison</div>
+      <div class="sec-title"><span class="no">01</span>Version comparison</div>
       <div class="table-wrap">
-        <table class="cmp" id="cmp"></table>
+        <table class="cmp" id="cmp">
+          <caption class="visually-hidden">Performance across releases: lower is better</caption>
+        </table>
       </div>
       <p class="note">Delta chips compare the current column against v5.0.0 · every metric is lower-is-better ·
       <code>—</code> means the metric was introduced in v5.1.0 (daemon, capture pipeline) or was not measured with this harness (wheel).</p>
     </section>
 
     <section>
-      <div class="sec-title">Startup &amp; latency — v__VERSION__</div>
+      <div class="sec-title"><span class="no">02</span>Startup &amp; latency — v__VERSION__</div>
       <div class="cards" id="cards"></div>
     </section>
 
     <section>
-      <div class="sec-title">Import profile — top contributors to GUI startup</div>
+      <div class="sec-title"><span class="no">03</span>Import profile — top contributors to GUI startup</div>
       <div class="rows" id="imports"></div>
     </section>
   </main>
 
   <footer>
-    <p>Generated by <code>uv run python scripts/bench.py all --html benchmarks.html</code> — best-of-N runs, hermetic HOME,
-    offscreen Qt where possible. Capture timings include the full keybind → saved-file pipeline on the live compositor
-    (niri · grim/slurp). Report is a static file; the data lives in the <code>__DATA__</code> script tag — regenerate any time.</p>
+    <div class="sec-title"><span class="no">04</span>Methodology</div>
+    <div class="method">
+      <div><dt>Measurement</dt><dd>Best-of-3 runs per metric, hermetic <b>HOME</b>, offscreen Qt where possible — import timing uses <b>python -X importtime</b>.</dd></div>
+      <div><dt>Environment</dt><dd>__PYTHON__ · niri (Wayland) · grim/slurp · single-instance daemon on the live session bus.</dd></div>
+      <div><dt>Capture pipeline</dt><dd>Full keybind → screenshot-saved path, hot (daemon resident) and cold (no daemon) on the live compositor. Keep it hot with <b>--install-autostart</b>.</dd></div>
+      <div><dt>Version history</dt><dd>v4.2.0 and v5.0.0 numbers were measured by running this harness against git worktrees of those tags; AppImage sizes come from the published release assets.</dd></div>
+    </div>
+    <p class="regen">Regenerate: <code>uv run python scripts/bench.py all --html benchmarks.html</code> — the report is a static file; data lives in the <code>__DATA__</code> script tag.</p>
   </footer>
 </div>
 
@@ -571,21 +638,28 @@ _HTML_TEMPLATE = """<!doctype html>
     })(t0);
   };
 
-  const lead = document.getElementById("lead");
-  const parts = [];
-  if (D.gui_import_ms) parts.push(`GUI import <b>${fmt(D.gui_import_ms)} ms</b>`);
-  if (D.daemon_start_ms) parts.push(`daemon start <b>${fmt(D.daemon_start_ms)} ms</b>`);
-  if (D.capture_ms) {
-    const cold = D.cold_capture_ms ? ` (cold <b>${fmt(D.cold_capture_ms)} ms</b>)` : "";
-    parts.push(`capture <b>${fmt(D.capture_ms)} ms</b>${cold}`);
-  }
+  const stats = document.getElementById("stats");
+  const statDefs = [];
+  if (D.gui_import_ms) statDefs.push(["GUI import", D.gui_import_ms, "ms"]);
+  if (D.daemon_start_ms) statDefs.push(["Daemon start", D.daemon_start_ms, "ms"]);
+  if (D.capture_ms) statDefs.push(["Capture (hot)", D.capture_ms, "ms", D.cold_capture_ms ? `cold ${fmt(D.cold_capture_ms)} ms` : ""]);
   if (D.appimage_mb) {
-    const prev = D.appimage_prev_mb;
-    const pct = prev ? Math.round((1 - D.appimage_mb / prev) * 100) : 0;
-    parts.push(`AppImage <b>${D.appimage_mb} MB</b>` + (pct > 0 ? ` <b class="good">(&minus;${pct}% vs ${D.versions && D.versions[1] ? D.versions[1].tag : "v5.0.0"})</b>` : ""));
+    const pct = D.appimage_prev_mb ? Math.round((1 - D.appimage_mb / D.appimage_prev_mb) * 100) : 0;
+    statDefs.push(["AppImage", D.appimage_mb, "MB", pct > 0 ? `\u2212${pct}% vs previous` : ""]);
   }
-  if (parts.length) lead.innerHTML = "Current build: " + parts.join(" · ") + ".";
-  else lead.textContent = "Current build: run the full suite to populate this report.";
+  if (statDefs.length) {
+    statDefs.forEach(([k, val, unit, sub]) => {
+      const el = document.createElement("div");
+      el.className = "stat";
+      const good = sub && sub.startsWith("\u2212");
+      el.innerHTML = `<span class="k">${k}</span><span class="v${good ? " good" : ""}"><span class="num">0</span><span class="u">${unit}</span></span>` +
+        (sub ? `<span class="s">${sub}</span>` : "");
+      stats.appendChild(el);
+      count(el.querySelector(".num"), val);
+    });
+  } else {
+    stats.replaceWith(Object.assign(document.createElement("p"), { className: "note", textContent: "Run the full suite to populate this report." }));
+  }
 
   const versions = D.versions ?? [];
   const cmp = document.getElementById("cmp");
@@ -601,7 +675,7 @@ _HTML_TEMPLATE = """<!doctype html>
       th.scope = "col";
       if (i === versions.length - 1) {
         th.className = "cur";
-        th.innerHTML = `current<span class="tag">${v.tag}</span>`;
+        th.innerHTML = `<span class="eyebrow">current</span><span class="tag">${v.tag}</span>`;
       } else {
         th.innerHTML = `<span class="tag">${v.tag}</span>`;
       }
@@ -617,14 +691,15 @@ _HTML_TEMPLATE = """<!doctype html>
       { label: "GUI import", unit: "ms", k: "gui_ms", desc: "main + Qt import" },
       { label: "Top import", unit: "ms", k: "top_import_ms", desc: "heaviest module (PySide6.QtCore)" },
       { label: "AppImage size", unit: "MB", k: "appimage_mb", desc: "portable x86_64 build" },
-      { label: "Daemon start", unit: "ms", k: "daemon_ms", desc: "spawn → IPC ready", since: "v5.1.0" },
-      { label: "Capture (hot)", unit: "ms", k: "capture_ms", desc: "keybind → saved", since: "v5.1.0" },
-      { label: "Capture (cold)", unit: "ms", k: "cold_ms", desc: "no daemon → saved", since: "v5.1.0" },
+      { label: "Daemon start", unit: "ms", k: "daemon_ms", desc: "spawn \u2192 IPC ready", since: "v5.1.0" },
+      { label: "Capture (hot)", unit: "ms", k: "capture_ms", desc: "keybind \u2192 saved", since: "v5.1.0" },
+      { label: "Capture (cold)", unit: "ms", k: "cold_ms", desc: "no daemon \u2192 saved", since: "v5.1.0" },
       { label: "Wheel size", unit: "KB", k: "wheel_kb", desc: "pip artifact", since: "v5.1.0" },
     ];
     const body = document.createElement("tbody");
-    defs.forEach((def) => {
+    defs.forEach((def, ri) => {
       const tr = document.createElement("tr");
+      tr.style.setProperty("--td", (ri * 40) + "ms");
       const td0 = document.createElement("td");
       td0.className = "metric";
       td0.innerHTML = `${def.label}<small>${def.desc}</small>`;
@@ -641,7 +716,7 @@ _HTML_TEMPLATE = """<!doctype html>
         if (val == null) {
           td.className = "na";
           td.title = def.since ? `${def.since} only` : "not measured";
-          td.textContent = "—";
+          td.textContent = "\u2014";
         } else {
           const isBest = val === best;
           td.className = "v" + (isBest ? " best" : "");
@@ -672,26 +747,27 @@ _HTML_TEMPLATE = """<!doctype html>
     }, { threshold: 0.15 });
     ioCmp.observe(cmp);
   } else {
-    cmp.replaceWith(document.createElement("p"));
-    document.querySelector(".note").textContent = "Version history is empty — run the full suite.";
+    cmp.replaceWith(Object.assign(document.createElement("p"), { className: "note", textContent: "Version history is empty \u2014 run the full suite." }));
+    document.querySelector(".note").textContent = "";
   }
 
   const cards = document.getElementById("cards");
   const defs = [
-    ["cli_version_ms", "CLI — version print", "ms", "cold shell start + import"],
+    ["cli_version_ms", "CLI \u2014 version print", "ms", "cold shell start + import"],
     ["gui_import_ms", "GUI import", "ms", "main module + Qt import"],
-    ["daemon_start_ms", "Daemon start", "ms", "spawn → IPC ping ready (offscreen)"],
+    ["daemon_start_ms", "Daemon start", "ms", "spawn \u2192 IPC ping ready (offscreen)"],
     ["daemon_rss_kb", "Daemon memory", "KB", "resident set after start"],
-    ["capture_ms", "Capture (hot)", "ms", "keybind → screenshot saved"],
-    ["cold_capture_ms", "Capture (cold)", "ms", "no daemon → saved screenshot"],
+    ["capture_ms", "Capture (hot)", "ms", "keybind \u2192 screenshot saved"],
+    ["cold_capture_ms", "Capture (cold)", "ms", "no daemon \u2192 saved screenshot"],
     ["wheel_kb", "Wheel size", "KB", "pip artifact on PyPI"],
   ];
   const rssMax = 80000;
   const max = Math.max(...defs.filter(([k]) => k !== "daemon_rss_kb").map(([k]) => D[k] ?? 0), 1);
   const widthOf = (k, v) => (k === "daemon_rss_kb" ? Math.min((v / rssMax) * 100, 100) : (v / max) * 100);
-  const nodes = defs.map(([k, label, unit, desc]) => {
+  const nodes = defs.map(([k, label, unit, desc], i) => {
     const el = document.createElement("div");
     el.className = "card";
+    el.style.setProperty("--td", (i * 45) + "ms");
     const v = D[k];
     el.innerHTML = `<div class="k">${label}</div>
       <div class="v"><span class="num">0</span><small>${v ? unit : "n/a"}</small></div>
@@ -709,18 +785,21 @@ _HTML_TEMPLATE = """<!doctype html>
       }
     });
   }, { threshold: 0.2 });
-  nodes.forEach((el, i) => { el.style.transitionDelay = (i * 45) + "ms"; io.observe(el); });
+  nodes.forEach((el) => io.observe(el));
 
   const imports = document.getElementById("imports");
   const rows = D.imports ?? [];
+  if (!rows.length) {
+    imports.innerHTML = '<p class="note">No import profile captured \u2014 run <code>imports</code>.</p>';
+  }
   const imax = Math.max(...rows.map((r) => r.cum_ms), 1);
   rows.forEach((r, i) => {
     const el = document.createElement("div");
     el.className = "row-card" + (i === 0 ? " first" : "");
+    el.style.setProperty("--td", (i * 30) + "ms");
     el.innerHTML = `<div class="row-head"><span class="name" title="${r.module}">${r.module}</span><span class="ms">${r.cum_ms.toFixed(1)} ms</span></div>
       <div class="row-bar"><i style="--w:${((r.cum_ms / imax) * 100).toFixed(1)}%"></i></div>`;
     imports.appendChild(el);
-    el.style.transitionDelay = (i * 30) + "ms";
     io.observe(el);
   });
 })();

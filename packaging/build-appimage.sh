@@ -2,6 +2,7 @@ set -euo pipefail
 VERSION="${1:-0.2.0}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APPDIR="$REPO_ROOT/build/AppDir"
+INTERNAL="$REPO_ROOT/dist/chamelshot/_internal"
 
 cd "$REPO_ROOT"
 uv run pyinstaller --onedir --name chamelshot \
@@ -34,6 +35,62 @@ uv run pyinstaller --onedir --name chamelshot \
   --collect-all dbus \
   -y main.py
 
+# Prune what --collect-all PySide6.* drags in but the app never uses:
+#   share/icons  - 1.1 GB of desktop icon themes (system themes are used at runtime)
+#   share/locale - Qt translations for every locale (app is English-only)
+#   Qt/translations - .qm files, same reason
+rm -rf "$INTERNAL/share/icons" \
+       "$INTERNAL/share/locale" \
+       "$INTERNAL/PySide6/Qt/translations"
+
+# Plugin families that drag whole dependency stacks the app never uses:
+#   virtualkeyboard input-context - pulls the QML/Quick/VirtualKeyboard stack
+#   libqpdf imageformat           - pulls QtPdf
+#   libqgtk3 platform theme       - pulls libgtk-3, gdk-pixbuf, RAW codecs
+#                                   (glycin/openraw) and a second ICU copy
+rm -f "$INTERNAL"/PySide6/Qt/plugins/platforminputcontexts/libqtvirtualkeyboardplugin.so \
+      "$INTERNAL"/PySide6/Qt/plugins/imageformats/libqpdf.so \
+      "$INTERNAL"/PySide6/Qt/plugins/platformthemes/libqgtk3.so
+rm -rf "$INTERNAL/share/themes"
+
+# Drop shared libs nothing in the bundle references; the core Qt set and
+# libpython are dlopen'd by name at startup (never linked, so ldd misses it).
+NEEDED="$(mktemp)"
+printf '%s\n' \
+  libQt6Core.so.6 libQt6Gui.so.6 libQt6Widgets.so.6 libQt6Network.so.6 \
+  libQt6DBus.so.6 libQt6OpenGL.so.6 libQt6WaylandClient.so.6 libQt6XcbQpa.so.6 \
+  libQt6EglFSDeviceIntegration.so.6 libQt6EglFsKmsSupport.so.6 \
+  libQt6Svg.so.6 libQt6WlShellIntegration.so.6 \
+  libpython3.14.so.1.0 > "$NEEDED"
+for f in "$REPO_ROOT"/dist/chamelshot/chamelshot "$INTERNAL"/PySide6/*.abi3.so \
+         "$INTERNAL"/PySide6/libpyside6.abi3.so.6.11; do
+  [ -e "$f" ] || continue
+  ldd "$f" 2>/dev/null | grep -o "libQt6[A-Za-z]*\.so\.6" || true
+done >> "$NEEDED"
+find "$INTERNAL"/PySide6/Qt/plugins -name '*.so' -exec ldd {} \; 2>/dev/null \
+  | grep -o "libQt6[A-Za-z]*\.so\.6" || true >> "$NEEDED"
+added=1
+while [ "$added" = 1 ]; do
+  added=0
+  for lib in "$INTERNAL"/PySide6/Qt/lib/*.so* "$INTERNAL"/lib*.so*; do
+    [ -e "$lib" ] || continue
+    base="$(basename "$lib")"
+    grep -qx "$base" "$NEEDED" || continue
+    for dep in $(ldd "$lib" 2>/dev/null | grep -o "lib[A-Za-z0-9_.-]*\.so\.[0-9]*" | sort -u); do
+      if ! grep -qx "$dep" "$NEEDED"; then
+        echo "$dep" >> "$NEEDED"
+        added=1
+      fi
+    done
+  done
+done
+for lib in "$INTERNAL"/PySide6/Qt/lib/*.so* "$INTERNAL"/lib*.so*; do
+  [ -e "$lib" ] || continue
+  grep -qx "$(basename "$lib")" "$NEEDED" || rm "$lib"
+done
+rm -f "$NEEDED"
+
+rm -rf "$APPDIR"
 mkdir -p "$APPDIR/usr/lib/chamelshot"
 cp -r dist/chamelshot/* "$APPDIR/usr/lib/chamelshot/"
 cp packaging/chamelshot.desktop "$APPDIR/"

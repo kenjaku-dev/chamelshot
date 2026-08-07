@@ -63,7 +63,7 @@ chmod +x chamelshot-vX.Y.Z-x86_64.AppImage
 ./chamelshot-vX.Y.Z-x86_64.AppImage
 ```
 
-The AppImage bundles Python, Qt, and the tray stack — no runtime dependencies beyond `grim` and `slurp`.
+The AppImage bundles Python, Qt, and the tray stack — no runtime dependencies beyond `grim` and `slurp`. Since 5.1 it's ~53 MB (down from 214 MB).
 
 > AppImage won't launch (Ubuntu/Fedora with newer kernels)? You're missing
 > libfuse2. Run it with `./chamelshot-*.AppImage --appimage-extract-and-run`

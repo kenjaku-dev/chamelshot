@@ -6,6 +6,17 @@ All notable changes to ChamelShot.
 
 ### Added
 
+- **AppImage slimming (G4)** — the AppImage drops from 214 MB to 53 MB
+  (~75% smaller, target was ≤ 140 MB) by pruning what `--collect-all PySide6.*`
+  drags in but the app never uses: the 1.1 GB of bundled icon themes, Qt
+  locale/translations, the GTK platform-theme plugin (which alone pulled in
+  libgtk-3, gdk-pixbuf, the glycin/openraw RAW decoders and a second ICU
+  copy), the virtual-keyboard input-context plugin (which pulled the whole
+  QML/Quick stack) and the PDF imageformat plugin (QtPdf). Remaining Qt libs
+  are pruned by an ldd closure fixpoint over the bundle, keeping the core
+  dlopen'd-by-name set (QtCore/Gui/Widgets/Network/DBus/OpenGL/WaylandClient/
+  XcbQpa/EglFS*/Svg/WlShell + libpython). The build script now also cleans the
+  AppDir between runs (stale files were silently shipping in previous builds).
 - **Always-hot daemon (G3)** — `chamelshot --install-service` /
   `--remove-service` install a systemd user unit
   (`~/.config/systemd/user/chamelshot.service`, `Restart=on-failure`,

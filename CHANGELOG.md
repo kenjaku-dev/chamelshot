@@ -23,8 +23,8 @@ All notable changes to ChamelShot.
   exist yet (and to re-attach the watch once it does). Selection and scroll
   position survive every refresh, so a capture taken mid-session shows up
   without moving the user's place.
-- **AppImage slimming (G4)** — the AppImage drops from 214 MB to 53 MB
-  (~75% smaller, target was ≤ 140 MB) by pruning what `--collect-all PySide6.*`
+- **AppImage slimming (G4)** — the AppImage drops from 214 MB to ~63 MB
+  (~70% smaller, target was ≤ 140 MB) by pruning what `--collect-all PySide6.*`
   drags in but the app never uses: the 1.1 GB of bundled icon themes, Qt
   locale/translations, the GTK platform-theme plugin (which alone pulled in
   libgtk-3, gdk-pixbuf, the glycin/openraw RAW decoders and a second ICU
@@ -77,6 +77,11 @@ All notable changes to ChamelShot.
 
 ### Refactored
 
+- **Dev loop (G6)** — pre-commit now runs only the fast gates (ruff, format,
+  whitespace, config checks, ~1 s); pyright and the full test suite moved to a
+  pre-push hook. Local test runs are parallel (pytest-xdist, `--dist
+  loadscope` keeps the dbus tray tests serialized): 169 tests in ~6 s instead
+  of ~9 s sequential.
 - **Centralized theme (F1)** — all stylesheets (launcher, history, pin,
   preview, settings) now build on shared tokens in `theme.py`; one value to
   change, no drift.

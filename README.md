@@ -63,7 +63,7 @@ chmod +x chamelshot-vX.Y.Z-x86_64.AppImage
 ./chamelshot-vX.Y.Z-x86_64.AppImage
 ```
 
-The AppImage bundles Python, Qt, and the tray stack — no runtime dependencies beyond `grim` and `slurp`. Since 5.1 it's ~53 MB (down from 214 MB).
+The AppImage bundles Python, Qt, and the tray stack — no runtime dependencies beyond `grim` and `slurp`. Since 5.1 it's ~63 MB (down from 214 MB).
 
 > AppImage won't launch (Ubuntu/Fedora with newer kernels)? You're missing
 > libfuse2. Run it with `./chamelshot-*.AppImage --appimage-extract-and-run`
@@ -215,7 +215,7 @@ bind = CTRL, Print, exec, chamelshot --settings
 ### Screenshot History
 - Automatic save to `~/.cache/chamelshot/history/` on every capture
 - Last 20 screenshots retained (oldest auto-pruned)
-- History browser: thumbnail grid with keyboard navigation (arrows / Enter / C / Del / Esc) that **live-refreshes** while open (new captures appear without reopening) and loads thumbnails in the background
+- History browser: thumbnail grid with keyboard navigation (arrows / Enter / C / Del / Esc) that **live-refreshes** while open — it watches the folder (inotify via `QFileSystemWatcher`), so new captures and external deletes appear within ~150 ms instead of on a poll interval, with a polling fallback while the folder doesn't exist yet — and loads thumbnails in the background
 - Browse the folder directly from the tray menu (opens with `xdg-open`)
 
 ### Capture Delay

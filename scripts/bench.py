@@ -616,7 +616,7 @@ _HTML_TEMPLATE = """<!doctype html>
       <div><dt>Capture pipeline</dt><dd>Full keybind → screenshot-saved path, hot (daemon resident) and cold (no daemon) on the live compositor. Keep it hot with <b>--install-autostart</b>.</dd></div>
       <div><dt>Version history</dt><dd>v4.2.0 and v5.0.0 numbers were measured by running this harness against git worktrees of those tags; AppImage sizes come from the published release assets.</dd></div>
     </div>
-    <p class="regen">Regenerate: <code>uv run python scripts/bench.py all --html benchmarks.html</code> — the report is a static file; data lives in the <code>__DATA__</code> script tag.</p>
+    <p class="regen">Regenerate: <code>uv run python scripts/bench.py all --html docs/benchmarks.html</code> — the report is a static file; data lives in the <code>__DATA__</code> script tag.</p>
   </footer>
 </div>
 

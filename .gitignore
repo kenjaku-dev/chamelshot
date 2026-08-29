@@ -8,11 +8,10 @@ wheels/
 *.spec
 chamelshot-bin
 .ruff_cache/
-.pytype/
-.mypy_cache/
 .coverage
 htmlcov/
 .pytest_cache/
+coverage.xml
 *.log
 .DS_Store
 .idea/

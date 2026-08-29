@@ -74,6 +74,17 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - run: uv sync
       - run: uv build
+      - name: Compute AUR source checksum (tag tarball)
+        run: |
+          tarball="https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${GITHUB_REF_NAME}.tar.gz"
+          sum="$(curl -fsSL "$tarball" | sha256sum | cut -d' ' -f1)"
+          echo "AUR sha256sum for $GITHUB_REF_NAME: $sum"
+          {
+            echo "### AUR PKGBUILD sha256sums"
+            echo '```'
+            echo "$sum  $GITHUB_REF_NAME.tar.gz"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload to PyPI
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}

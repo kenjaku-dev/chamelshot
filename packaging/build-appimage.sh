@@ -113,13 +113,23 @@ chamelshot.png
 EODIR
 
 if ! command -v appimagetool &>/dev/null; then
+  # Pinned to AppImageKit v12 (release "13" obsoleted the old tool; the
+  # "continuous" build we used before is a moving target — never verify it).
   ARCH=$(uname -m)
+  [ "$ARCH" = "x86_64" ] || { echo "no prebuilt appimagetool for $ARCH; install it manually" >&2; exit 1; }
+  TOOL_URL="https://github.com/AppImage/AppImageKit/releases/download/12/appimagetool-x86_64.AppImage"
+  TOOL_SHA256="d918b4df547b388ef253f3c9e7f6529ca81a885395c31f619d9aaf7030499a13"
   APPIMAGETOOL="$REPO_ROOT/build/appimagetool"
   if [ ! -f "$APPIMAGETOOL" ]; then
-    wget -q "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${ARCH}.AppImage" -O "$APPIMAGETOOL"
+    mkdir -p "$(dirname "$APPIMAGETOOL")"
+    curl -fsSL "$TOOL_URL" -o "$APPIMAGETOOL"
+    echo "$TOOL_SHA256  $APPIMAGETOOL" | sha256sum -c - || {
+      echo "appimagetool checksum MISMATCH — refusing to use it" >&2
+      rm -f "$APPIMAGETOOL"
+      exit 1
+    }
     chmod +x "$APPIMAGETOOL"
   fi
-  APPIMAGETOOL="$APPIMAGETOOL"
 fi
 
 ARCH=x86_64 "$APPIMAGETOOL" "$APPDIR" "$REPO_ROOT/dist/chamelshot-${VERSION}-x86_64.AppImage"

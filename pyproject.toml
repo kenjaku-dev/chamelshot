@@ -70,6 +70,14 @@ py-modules = ["__init__", "version", "dispatcher", "ipc", "editor", "main", "cap
 python_files = ["test_*.py"]
 pythonpath = ["."]
 
+[tool.coverage.run]
+branch = true
+source = ["."]
+omit = ["test_*.py", "scripts/*"]
+
+[tool.coverage.report]
+exclude_also = ["if TYPE_CHECKING:"]
+
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",

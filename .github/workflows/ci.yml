@@ -61,7 +61,7 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync
-      - run: QT_QPA_PLATFORM=offscreen dbus-run-session -- uv run pytest -n auto --dist loadscope -q
+      - run: QT_QPA_PLATFORM=offscreen dbus-run-session -- uv run pytest -n auto --dist loadscope -q --cov --cov-report=term-missing --cov-fail-under=40
 
   build:
     runs-on: ubuntu-latest

@@ -14,27 +14,29 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def sources() -> dict[str, str | None]:
+def read_versions() -> dict[str, str]:
+    """Return {source_name: version} for every source of truth."""
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
-    aur_pkgbuild = (ROOT / "aur" / "PKGBUILD").read_text()
-    aur_srcinfo = (ROOT / "aur" / ".SRCINFO").read_text()
+
+    def match(path: Path, pattern: str) -> str:
+        found = re.search(pattern, path.read_text())
+        if not found:
+            raise SystemExit(f"FAIL: no version match in {path.relative_to(ROOT)}")
+        return found.group(1)
+
     return {
-        "version.py": re.search(r'(?m)^VERSION = "([^"]+)"$', (ROOT / "version.py").read_text()),
-        "pyproject.toml": None,  # filled below
-        "aur/PKGBUILD": re.search(r"(?m)^pkgver=([^#\n]+)$", aur_pkgbuild),
-        "aur/.SRCINFO": re.search(r"(?m)^[ \t]*pkgver = ([^\n]+)$", aur_srcinfo),
-    } | {"pyproject.toml": pyproject.get("project", {}).get("version")}
+        "version.py": match(ROOT / "version.py", r'(?m)^VERSION = "([^"]+)"$'),
+        "pyproject.toml": str(pyproject.get("project", {}).get("version", "")),
+        "aur/PKGBUILD": match(ROOT / "aur" / "PKGBUILD", r"(?m)^pkgver=([^#\n]+)$"),
+        "aur/.SRCINFO": match(ROOT / "aur" / ".SRCINFO", r"(?m)^[ \t]*pkgver = ([^\n]+)$"),
+    }
 
 
 def main() -> int:
-    versions = {k: (v.group(1) if isinstance(v, re.Match) else v) for k, v in sources().items()}
-    missing = [k for k, v in versions.items() if not v]
-    if missing:
-        print(f"FAIL: could not read version from: {', '.join(missing)}", file=sys.stderr)
-        return 1
-    distinct = sorted(set(versions.values()))
+    versions = read_versions()
     for name, ver in versions.items():
         print(f"{name}: {ver}")
+    distinct = sorted(set(versions.values()))
     if len(distinct) > 1:
         print(f"FAIL: version mismatch: {distinct}", file=sys.stderr)
         return 1

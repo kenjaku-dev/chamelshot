@@ -13,15 +13,6 @@ dependencies = [
 [project.scripts]
 chamelshot = "main:main"
 
-[project.optional-dependencies]
-dev = [
-    "ruff>=0.11.0",
-    "pyright>=1.1.400",
-    "pytest>=8.0",
-    "pytest-xdist>=3.6",
-    "pyinstaller>=6.0",
-]
-
 [tool.ruff]
 target-version = "py314"
 line-length = 120
@@ -83,7 +74,10 @@ pythonpath = ["."]
 dev = [
     "pytest>=9.1.1",
     "pytest-xdist>=3.6",
+    "pytest-cov>=7.0",
     "ruff>=0.16.0",
+    "pyright>=1.1.400",
+    "vulture>=2.14",
     "dbus-python>=1.4.0",
     "pyinstaller>=6.21.0",
 ]

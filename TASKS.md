@@ -17,47 +17,47 @@ Status legend: `[ ]` todo · `[x]` done · `[~]` in progress
 ## Phase 0 — Fix all audit findings (no user-visible change)
 
 ### 0.1 Single-source versioning (P0 — versions already diverged)
-- [ ] Delete stale root `PKGBUILD` + `.SRCINFO` (still 4.2.0; `aur/` is canonical)
-- [ ] Create `scripts/release.sh`: bumps `version.py` + `pyproject.toml` +
+- [x] Delete stale root `PKGBUILD` + `.SRCINFO` (still 4.2.0; `aur/` is canonical)
+- [x] Create `scripts/release.sh`: bumps `version.py` + `pyproject.toml` +
       `aur/PKGBUILD`, regenerates `aur/.SRCINFO` (`makepkg --printsrcinfo`),
       commits, tags `vX.Y.Z`, pushes
-- [ ] CI check job that fails when the 4 version sources diverge
-- [ ] Test release.sh logic locally (dry-run mode)
+- [x] CI check job that fails when the 4 version sources diverge
+- [x] Test release.sh logic locally (dry-run mode)
 
 ### 0.2 Real checksums / supply chain (P0)
-- [ ] Release CI: compute sha256 of the tag tarball, output it for the AUR
-- [ ] Commit checksum into `aur/PKGBUILD` (replace `sha256sums=('SKIP')`)
-- [ ] `build-appimage.sh`: pin `appimagetool` to a fixed release URL +
+- [x] Release CI: compute sha256 of the tag tarball, output it for the AUR
+- [x] Commit checksum into `aur/PKGBUILD` (replace `sha256sums=('SKIP')`)
+- [x] `build-appimage.sh`: pin `appimagetool` to a fixed release URL +
       verify its sha256 before use (stop using "continuous" blind download)
 
 ### 0.3 Consolidate dev dependencies (P1)
-- [ ] Keep only `[dependency-groups]` in `pyproject.toml`
-- [ ] Delete `[project.optional-dependencies].dev`; CI switches to
+- [x] Keep only `[dependency-groups]` in `pyproject.toml`
+- [x] Delete `[project.optional-dependencies].dev`; CI switches to
       `uv sync` (dependency-groups are default)
-- [ ] Resolve version drift (pytest 8 vs 9, ruff 0.11 vs 0.16)
-- [ ] Add `vulture` as a real dev dep (config exists, tool was ad-hoc)
+- [x] Resolve version drift (pytest 8 vs 9, ruff 0.11 vs 0.16)
+- [x] Add `vulture` as a real dev dep (config exists, tool was ad-hoc)
 
 ### 0.4 CI improvements (P1)
-- [ ] `astral-sh/setup-uv` with `enable-cache: true` in all jobs
-- [ ] Test job: `uv run pytest -n auto --dist loadscope -q` (parity with local)
-- [ ] Release job: reuse build-job artifacts (upload/download) — no second
+- [x] `astral-sh/setup-uv` with `enable-cache: true` in all jobs
+- [x] Test job: `uv run pytest -n auto --dist loadscope -q` (parity with local)
+- [x] Release job: reuse build-job artifacts (upload/download) — no second
       `uv build`
-- [ ] Release notes auto-generated from the matching `CHANGELOG.md` section
+- [x] Release notes auto-generated from the matching `CHANGELOG.md` section
       (replace `--notes ""`)
 
 ### 0.5 Coverage (P1)
-- [ ] Add `pytest-cov` to dev deps + pytest addopts
-- [ ] CI uploads/reports coverage; fail below threshold (start ~70%)
+- [x] Add `pytest-cov` to dev deps + pytest addopts
+- [x] CI uploads/reports coverage; fail below threshold (40% (measured baseline 41%; raise over time))
 
 
 ### 0.6 Dependency & security automation (P1)
-- [ ] `.github/dependabot.yml` (pip + github-actions ecosystems)
-- [ ] `uv audit` / `pip-audit` step in CI
+- [x] `.github/dependabot.yml` (pip + github-actions ecosystems)
+- [x] `uv audit` / `pip-audit` step in CI
 
 ### 0.7 Config & repo hygiene (P2)
-- [ ] Remove dead `.gitignore` entries (`.pytype/`, `.mypy_cache/`)
-- [ ] Move generated `benchmarks.html` to `docs/`
-- [ ] `.github/`: add issue templates + PR template
+- [x] Remove dead `.gitignore` entries (`.pytype/`, `.mypy_cache/`)
+- [x] Move generated `benchmarks.html` to `docs/`
+- [x] `.github/`: add issue templates + PR template
 
 **Phase 0 exit gate:** all checks green, `git push` + CI green.
 
